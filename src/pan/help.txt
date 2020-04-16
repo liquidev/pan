@@ -1,0 +1,163 @@
+pan - PNG animator
+copyright (C) iLiquid, 2020
+
+pan is a tool for creating motion graphics using lua code.
+
+USAGE:
+  pan <luafile> <action>
+
+ACTIONS:
+  preview     display interactive preview of the animation.
+              in this case, the framerate you set in the luafile does not
+              matter! it will always be your monitor's refresh rate, for a
+              pleasant playback experience. please note that with large
+              animations slowdowns may occur.
+  render      render animation to PNGs to a folder with the same name as the
+              luafile. eg. for `anim.lua`, will render to `anim/{frame}.png`
+
+LUAFILE:
+  the luafile is the main file for the animation. it must contain a function
+  called `render` with no parameters.
+  at the beginning of your luafile, there must also be a call to frame(),
+  reference below.
+
+LUA API:
+
+  -- PROJECT
+
+  animation { width, height, length, framerate = 60 }
+    sets the animation up for rendering.
+  width  height
+    globals that store the width and height provided in animation().
+
+  -- COLOR
+
+  gray(value, [alpha = 255])
+    creates a grayscale color with the RGB components set to the given `value`.
+    if `alpha` is provided, the alpha channel of the color will be the specified
+    value, otherwise it is 255
+  rgb(red, green, blue)  rgba(red, green, blue, alpha)
+    creates an color with the given RGB[A] components
+  hex(hexcode)
+    parses a hex color value and creates a color with the given RGB components
+
+  -- PAINTS
+
+  solid(color)
+    creates a solid paint with the given color
+
+  Paint
+  :lineWidth(x)
+    sets a paint's line width
+  :lineCap(cap)
+    sets a paint's line cap (lcButt|lcSquare|lcRound)
+  :lineJoin(join)
+    sets a paint's line join (ljBevel|ljMiter|ljRound)
+
+
+  -- DRAWING
+
+  clear(paint)
+    clears the canvas with a paint.
+  push()
+    saves the current drawing parameters (path, transform) onto a stack.
+  pop()
+    restores the parameters off of the stack.
+
+  begin()
+    begins drawing a path. call this before any path drawing operation,
+    otherwise remnants of old paths may still remain.
+  moveTo(x, y)
+    moves to the given position for line placement.
+  lineTo(x, y)
+    adds a line from the current position to the given position to the given
+    path. moves the current position to (x, y)
+  rect(x, y, w, h)
+    adds a rectangle to the current path.
+  arc(x, y, r, astart, aend)
+    adds an arc to the current path.
+  close()
+    closes the existing path by creating a line from the current point to the
+    starting point
+  fill(paint)
+    fills the path with the given paint.
+  stroke(paint)
+    strokes the path with the given paint.
+
+  line(x0, y0, x1, y1, paint)
+    shortcut for drawing a line using begin(), vertex(), and stroke()
+  rects(x, y, w, h, paint)  rectf(x, y, w, h, paint)
+    draws a stroked or filled rectangle at the given coordinates (top left),
+    with the given size and paint
+  circles(x, y, r, paint)  circlef(x, y, r, paint)
+    similar to (stroke|fill)Rect, but draws a circle with the given center point
+    and radius
+
+  font(name, [weight = fwNormal], [slant = fsNormal])
+    loads a font by the given name, font slant (fsNone|fsItalic|fsOblique), and
+    weight (fwNormal|fwBold).
+  text(font, x, y, text, size,
+       [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
+    adds text to the path, using the given font, at the given coordinates,
+    at the given font size. the [w, h, halign, valign] parameters
+    are used for alignment: the text will be aligned inside of a rect with the
+    given dimensions, and at the specified position.
+    valid values for halign:  taLeft, taCenter, taRight
+    for valign:               taTop, taMiddle, taBottom
+  textf(font, x, y, text, size, paint,
+        [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
+    draws filled text. see above
+  texts(font, x, y, text, size, paint,
+        [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
+    draws stroked text. see above
+  textSize(font, text, size)
+    returns the width and height of the given text, at the given font size.
+
+  -- TRANSFORMS
+
+  translate(x, y)
+    translates the current view by (x, y) pixels.
+  scale(x, y)
+    scales the current view by a factor of (x, y).
+  rotate(z)
+    rotates the current view by z radians.
+
+  -- MATH
+
+  clamp(x, a, b)
+    clamps the given value x between a and b.
+
+  -- ANIMATION
+
+  time
+    global which stores the current frame's time, in seconds.
+    only valid during render()
+  length
+    global which stores the animation's length in seconds
+  framerate
+    global which stores the framerate
+  interp(a, b, t, [func = linear])
+    interpolates between the two values a and b with the coefficient t (in the
+    range 0..1) using the given easing function. if t is out of the given range,
+    clamp() is used to limit it.
+  ease(a, b, starttime, endtime, [func = linear])
+    eases a given value from a to b between starttime and endtime seconds in the
+    animation using the given easing function (see below).
+  easel(a, b, starttime, length, [func = linear])
+    similar to ease(), but uses a length instead of an ending time.
+
+  easing functions
+  linear(x)
+  (sine|quad|cubic|quartic|quintic|expo|circ|back|elastic|bounce)(In|Out|InOut)
+    each easing function accepts a single parameter and outputs a value between
+    0 and 1 for interpolating another value. see interp() and ease()
+    linear() is a noop, all it does is it returns its input value
+  Easings.linear  Easings.In  Easings.Out  Easings.InOut
+    a global table that contains all the previously mentioned functions if you
+    want to eg. iterate over them.
+
+  -- EXTRA
+
+  len(x)
+    Returns the length of the given string or table. this is equivalent to #x
+    for strings, but counts all the keys for tables. returns 0 for other types.
