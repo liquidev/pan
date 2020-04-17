@@ -51,7 +51,7 @@ pan file.lua render
 
 Here's an example of a short luafile you can preview with `pan <file>`:
 ```lua
-animation { width = 400, height = 400, length = 4.0, framerate = 60 }
+animation { width = 400, height = 400, length = 4.0, framerate = 25 }
 
 sans = font("sans-serif")
 
@@ -62,16 +62,19 @@ Size = 128
 
 function render()
   clear(background)
-  
+
   push()
 
   translate(width / 2, height / 2)
-  translate(ease(-width / 2 - Size, 0, 0, 2, quinticOut), 0)
-  translate(ease(0, width / 2 + Size, 1, 3, quinticIn), 0)
-  rotate(ease(0, math.pi, 0.5, 2, quinticInOut))
+  translate(keyframes {
+    { time = 0.0, val = -width / 2 - Size / 2 },
+    { time = 1.0, val = 0,                    easing = quinticOut },
+    { time = 2.0, val = width / 2 + Size / 2, easing = quinticIn },
+  }, 0)
+  rotate(ease(0, math.pi, 0.0, 1.5, quinticInOut))
 
   rectf(-Size / 2, -Size / 2, Size, Size, white)
-  
+
   pop()
 end
 ```
