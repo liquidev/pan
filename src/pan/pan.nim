@@ -286,6 +286,9 @@ proc panStroke(paint: Paint) =
   paint.use()
   cairoCtx.strokePreserve()
 
+proc panClip() =
+  cairoCtx.clipPreserve()
+
 proc toCairo(slant: PanFontSlant): FontSlant =
   case slant
   of fsNone: FontSlantNormal
@@ -384,6 +387,7 @@ lua.bindProc:
   panClose -> "close"
   panFill -> "fill"
   panStroke -> "stroke"
+  panClip -> "clip"
   panText -> "pan__textImpl"  # defer for default parameters
   panTextSize -> "textSize"
   # -- TRANSFORMS

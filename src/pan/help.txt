@@ -60,7 +60,7 @@ LUA API:
   clear(paint)
     clears the canvas with a paint.
   push()
-    saves the current drawing parameters (path, transform) onto a stack.
+    saves the current drawing parameters (transform, clip) onto a stack.
   pop()
     restores the parameters off of the stack.
 
@@ -83,6 +83,10 @@ LUA API:
     fills the path with the given paint.
   stroke(paint)
     strokes the path with the given paint.
+  clip()
+    clips the drawing area to the current path. any further drawing operations
+    will be only visible inside that area. the clip area may only get smaller;
+    the only way to enlarge it is by using push() and pop().
 
   line(x0, y0, x1, y1, paint)
     shortcut for drawing a line using begin(), vertex(), and stroke()
@@ -92,6 +96,8 @@ LUA API:
   circles(x, y, r, paint)  circlef(x, y, r, paint)
     similar to (stroke|fill)Rect, but draws a circle with the given center point
     and radius
+  cliprect(x, y, w, h)
+    shortcut around calling begin(), rect(), and clip().
 
   font(name, [weight = fwNormal], [slant = fsNormal])
     loads a font by the given name, font slant (fsNone|fsItalic|fsOblique), and

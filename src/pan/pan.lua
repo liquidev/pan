@@ -103,6 +103,12 @@ do
     fill(paint)
   end
 
+  function cliprect(x, y, w, h)
+    begin()
+    rect(x, y, w, h)
+    clip()
+  end
+
   function font(name, weight, slant)
     if weight == nil then weight = fwNormal end
     if slant == nil then slant = fsNone end
@@ -191,11 +197,12 @@ do
     end
 
     local fallback = intervals[1].vfrom
-    for _, iv in ipairs(intervals) do
+    for i, iv in ipairs(intervals) do
       if time > iv.tfrom and time < iv.tto then
         return ease(iv.vfrom, iv.vto, iv.tfrom, iv.tto, iv.easing)
+      elseif time > iv.tto then
+        fallback = iv.vto
       end
-      fallback = iv.vto
     end
     return fallback
   end
