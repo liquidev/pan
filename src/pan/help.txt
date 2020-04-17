@@ -25,7 +25,7 @@ LUA API:
 
   -- PROJECT
 
-  animation { width, height, length, framerate = 60 }
+  animation { width=, height=, length=, framerate = 60 }
     sets the animation up for rendering.
   width  height
     globals that store the width and height provided in animation().
@@ -145,14 +145,20 @@ LUA API:
     animation using the given easing function (see below).
   easel(a, b, starttime, length, [func = linear])
     similar to ease(), but uses a length instead of an ending time.
+  keyframes {
+    { time=, val=, [easing = linear] },
+    ...
+  }
+    animates a property using keyframes. this uses ease() internally, but allows
+    for expressing sequential keyframe-based motion much more easily.
 
   easing functions
-  linear(x)
+  linear(x) step(x)
   (sine|quad|cubic|quartic|quintic|expo|circ|back|elastic|bounce)(In|Out|InOut)
     each easing function accepts a single parameter and outputs a value between
     0 and 1 for interpolating another value. see interp() and ease()
     linear() is a noop, all it does is it returns its input value
-  Easings.linear  Easings.In  Easings.Out  Easings.InOut
+  Easings.linear  Easings.step  Easings.In  Easings.Out  Easings.InOut
     a global table that contains all the previously mentioned functions if you
     want to eg. iterate over them.
 
@@ -161,3 +167,7 @@ LUA API:
   len(x)
     Returns the length of the given string or table. this is equivalent to #x
     for strings, but counts all the keys for tables. returns 0 for other types.
+  repr(x)
+    Returns the string representation of a value for debugging. This uses
+    tostring for all types except tables, where it returns the keys and values
+    of the table.

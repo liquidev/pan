@@ -144,6 +144,12 @@ do
     return x
   end
 
+  function step(x)
+    if x < 0.9999 then return 0
+    else return 1
+    end
+  end
+
   function interp(a, b, t, func)
     if func == nil then func = linear end
     t = func(clamp(t, 0, 1))
@@ -157,6 +163,41 @@ do
 
   function easel(a, b, starttime, length, func)
     return ease(a, b, starttime, starttime + length, func)
+  end
+
+  function keyframes(k)
+    if #k < 1 then error("at least 1 keyframe must be provided") end
+
+    local intervals = {}
+
+    local function validatekey(i, key)
+      if key.time == nil then error("key "..i..": no time provided") end
+      if key.val == nil then error("key "..i..": no value provided") end
+      if key.easing == nil then key.easing = linear end
+    end
+
+    do
+      validatekey(1, k[1])
+      local lasttime, lastval = k[1].time, k[1].val
+      for i = 2, #k do
+        validatekey(i, k[i])
+        table.insert(intervals, {
+          tfrom = lasttime, tto = k[i].time,
+          vfrom = lastval, vto = k[i].val,
+          easing = k[i].easing,
+        })
+        lasttime, lastval = k[i].time, k[i].val
+      end
+    end
+
+    local fallback = intervals[1].vfrom
+    for _, iv in ipairs(intervals) do
+      if time > iv.tfrom and time < iv.tto then
+        return ease(iv.vfrom, iv.vto, iv.tfrom, iv.tto, iv.easing)
+      end
+      fallback = iv.vto
+    end
+    return fallback
   end
 
   do
@@ -296,6 +337,7 @@ do
 
     Easings = {
       linear = linear,
+      step = step,
       In = {
         sine = sineIn,
         quad = quadIn,
@@ -348,6 +390,39 @@ do
       return count
     else
       return 0
+    end
+  end
+
+  function repr(x)
+    if type(x) == "table" then
+      local result = {}
+      local function indent(s, level)
+        local lines = {}
+        local buffer = {}
+        for i = 1, #s do
+          if s:sub(i, i) == '\n' then
+            table.insert(lines, table.concat(buffer))
+            buffer = {}
+          else
+            table.insert(buffer, s:sub(i, i))
+          end
+        end
+        if #buffer > 0 then
+          table.insert(lines, table.concat(buffer))
+        end
+        local indent = string.rep(' ', level)
+        local indented = {}
+        for _, line in pairs(lines) do
+          table.insert(indented, indent..line..'\n')
+        end
+        return table.concat(indented)
+      end
+      for k, v in pairs(x) do
+        table.insert(result, indent(k.." = "..repr(v)..", \n", 2))
+      end
+      return "{\n"..table.concat(result).."}"
+    else
+      return tostring(x)
     end
   end
 
