@@ -22,28 +22,32 @@ LUAFILE:
   reference below.
 
 LUA API:
+  all functions from the pan namespace are available as global variables by
+  default. using the pan namespace should be preferred in library code, as the
+  namespace is immutable, so the user can't possibly override pan methods. you
+  can expect that they will always work.
 
   -- PROJECT
 
-  animation { width=, height=, length=, framerate = 60 }
+  pan.animation { width=, height=, length=, framerate = 60 }
     sets the animation up for rendering.
-  width  height
-    globals that store the width and height provided in animation().
+  pan.width  pan.height
+    store the width and height provided in animation().
 
   -- COLOR
 
-  gray(value, [alpha = 255])
+  pan.gray(value, [alpha = 255])
     creates a grayscale color with the RGB components set to the given `value`.
     if `alpha` is provided, the alpha channel of the color will be the specified
     value, otherwise it is 255
-  rgb(red, green, blue)  rgba(red, green, blue, alpha)
+  pan.rgb(red, green, blue)  pan.rgba(red, green, blue, alpha)
     creates an color with the given RGB[A] components
-  hex(hexcode)
+  pan.hex(hexcode)
     parses a hex color value and creates a color with the given RGB components
 
   -- PAINTS
 
-  solid(color)
+  pan.solid(color)
     creates a solid paint with the given color
 
   Paint
@@ -57,101 +61,101 @@ LUA API:
 
   -- DRAWING
 
-  clear(paint)
+  pan.clear(paint)
     clears the canvas with a paint.
-  push()
+  pan.push()
     saves the current drawing parameters (transform, clip) onto a stack.
-  pop()
+  pan.pop()
     restores the parameters off of the stack.
 
-  begin()
+  pan.begin()
     begins drawing a path. call this before any path drawing operation,
     otherwise remnants of old paths may still remain.
-  moveTo(x, y)
+  pan.moveTo(x, y)
     moves to the given position for line placement.
-  lineTo(x, y)
+  pan.lineTo(x, y)
     adds a line from the current position to the given position to the given
     path. moves the current position to (x, y)
-  rect(x, y, w, h)
+  pan.rect(x, y, w, h)
     adds a rectangle to the current path.
-  arc(x, y, r, astart, aend)
+  pan.arc(x, y, r, astart, aend)
     adds an arc to the current path.
-  close()
+  pan.close()
     closes the existing path by creating a line from the current point to the
     starting point
-  fill(paint)
+  pan.fill(paint)
     fills the path with the given paint.
-  stroke(paint)
+  pan.stroke(paint)
     strokes the path with the given paint.
-  clip()
+  pan.clip()
     clips the drawing area to the current path. any further drawing operations
     will be only visible inside that area. the clip area may only get smaller;
     the only way to enlarge it is by using push() and pop().
 
-  line(x0, y0, x1, y1, paint)
+  pan.line(x0, y0, x1, y1, paint)
     shortcut for drawing a line using begin(), vertex(), and stroke()
-  rects(x, y, w, h, paint)  rectf(x, y, w, h, paint)
+  pan.rects(x, y, w, h, paint)  pan.rectf(x, y, w, h, paint)
     draws a stroked or filled rectangle at the given coordinates (top left),
     with the given size and paint
-  circles(x, y, r, paint)  circlef(x, y, r, paint)
+  pan.circles(x, y, r, paint)  pan.circlef(x, y, r, paint)
     similar to (stroke|fill)Rect, but draws a circle with the given center point
     and radius
-  cliprect(x, y, w, h)
+  pan.cliprect(x, y, w, h)
     shortcut around calling begin(), rect(), and clip().
 
-  font(name, [weight = fwNormal], [slant = fsNormal])
+  pan.font(name, [weight = fwNormal], [slant = fsNormal])
     loads a font by the given name, font slant (fsNone|fsItalic|fsOblique), and
     weight (fwNormal|fwBold).
-  text(font, x, y, text, size,
-       [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
+  pan.text(font, x, y, text, size,
+           [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
     adds text to the path, using the given font, at the given coordinates,
     at the given font size. the [w, h, halign, valign] parameters
     are used for alignment: the text will be aligned inside of a rect with the
     given dimensions, and at the specified position.
     valid values for halign:  taLeft, taCenter, taRight
     for valign:               taTop, taMiddle, taBottom
-  textf(font, x, y, text, size, paint,
-        [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
+  pan.textf(font, x, y, text, size, paint,
+           [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
     draws filled text. see above
-  texts(font, x, y, text, size, paint,
-        [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
+  pan.texts(font, x, y, text, size, paint,
+           [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
     draws stroked text. see above
-  textSize(font, text, size)
+  pan.textSize(font, text, size)
     returns the width and height of the given text, at the given font size.
 
   -- TRANSFORMS
 
-  translate(x, y)
+  pan.translate(x, y)
     translates the current view by (x, y) pixels.
-  scale(x, y)
+  pan.scale(x, y)
     scales the current view by a factor of (x, y).
-  rotate(z)
+  pan.rotate(z)
     rotates the current view by z radians.
 
   -- MATH
 
-  clamp(x, a, b)
+  pan.clamp(x, a, b)
     clamps the given value x between a and b.
 
   -- ANIMATION
 
-  time
-    global which stores the current frame's time, in seconds.
+  pan.time
+    stores the current frame's time, in seconds.
     only valid during render()
-  length
-    global which stores the animation's length in seconds
-  framerate
-    global which stores the framerate
-  interp(a, b, t, [func = linear])
+  pan.length
+    stores the animation's length in seconds
+  pan.framerate
+    stores the framerate
+  pan.interp(a, b, t, [func = linear])
     interpolates between the two values a and b with the coefficient t (in the
     range 0..1) using the given easing function. if t is out of the given range,
     clamp() is used to limit it.
-  ease(a, b, starttime, endtime, [func = linear])
+  pan.ease(a, b, starttime, endtime, [func = linear])
     eases a given value from a to b between starttime and endtime seconds in the
     animation using the given easing function (see below).
-  easel(a, b, starttime, length, [func = linear])
+  pan.easel(a, b, starttime, length, [func = linear])
     similar to ease(), but uses a length instead of an ending time.
-  keyframes {
+  pan.keyframes {
     { time=, val=, [easing = linear] },
     ...
   }
@@ -159,21 +163,24 @@ LUA API:
     for expressing sequential keyframe-based motion much more easily.
 
   easing functions
-  linear(x) step(x)
-  (sine|quad|cubic|quartic|quintic|expo|circ|back|elastic|bounce)(In|Out|InOut)
+  pan.linear(x) pan.step(x)
+  pan.
+    (sine|quad|cubic|quartic|quintic|expo|circ|back|elastic|bounce)
+    (In|Out|InOut)
     each easing function accepts a single parameter and outputs a value between
     0 and 1 for interpolating another value. see interp() and ease()
     linear() is a noop, all it does is it returns its input value
-  Easings.linear  Easings.step  Easings.In  Easings.Out  Easings.InOut
+  pan.Easings.linear  pan.Easings.step
+  pan.Easings.In  pan.Easings.Out  pan.Easings.InOut
     a global table that contains all the previously mentioned functions if you
     want to eg. iterate over them.
 
   -- EXTRA
 
-  len(x)
+  pan.len(x)
     Returns the length of the given string or table. this is equivalent to #x
     for strings, but counts all the keys for tables. returns 0 for other types.
-  repr(x)
+  pan.repr(x)
     Returns the string representation of a value for debugging. This uses
     tostring for all types except tables, where it returns the keys and values
     of the table.

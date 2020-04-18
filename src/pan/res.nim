@@ -1,3 +1,10 @@
 import rapid/gfx/text
 
-var sans*: RFont
+import api
+
+
+# global resources
+
+var
+  gSans*: RFont
+  gAnim*: Animation

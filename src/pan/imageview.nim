@@ -57,11 +57,11 @@ ImageView.renderer(Default, view):
     let zoomPercent = $int(view.zoom * 100) & "%"
     ctx.begin()
     ctx.color = gray(0, 128)
-    ctx.rect(view.width - 24 - sans.widthOf(zoomPercent), 8,
-             16 + sans.widthOf(zoomPercent), 24)
+    ctx.rect(view.width - 24 - gSans.widthOf(zoomPercent), 8,
+             16 + gSans.widthOf(zoomPercent), 24)
     ctx.draw()
     ctx.color = gray(255)
-    ctx.text(sans, view.width - 16, 12, zoomPercent, halign = taRight)
+    ctx.text(gSans, view.width - 16, 12, zoomPercent, halign = taRight)
 
 proc initImageView*(view: ImageView, x, y, width, height: float,
                     image: RTexture) =

@@ -1,3 +1,4 @@
+print("hello world!")
 animation { width = 400, height = 400, length = 4.0, framerate = 25 }
 
 sans = font("sans-serif")
