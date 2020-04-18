@@ -141,6 +141,7 @@ proc namespaceSet*[T](lua: PState, tableIndex: int, key: string, val: T) =
       # what's used.
       {.error: "namespaceSet not available for " & $T.}
   lua.setglobal(key)
+  lua.rawset(tableIndex.cint)
 
 proc init*(se: var ScriptEngine, anim: Animation, scriptMain: string) =
   ## Initializes the scripting engine for the given animation and loads the
@@ -227,7 +228,7 @@ proc renderFrame*(se: var ScriptEngine) =
   se.state.namespaceSet(panIndex, "time", se.anim.time)
   let error = se.call(0, 0)
   if error.isSome:
-    se.error("error in luafile:\n" & error.get)
+    se.error("error in luafile (in render()):\n" & error.get)
   se.state.namespaceSet(panIndex, "time", luaNil)
 
   se.state.pop(-1)

@@ -1,4 +1,4 @@
-import std/macros
+import std/math
 
 import cairo
 
@@ -222,3 +222,8 @@ proc init*(anim: Animation, width, height: int,
 
   anim.surface = cairo.imageSurfaceCreate(FormatArgb32, width.cint, height.cint)
   anim.cairo = cairo.create(anim.surface)
+
+  anim.length = length
+  anim.framerate = framerate
+  if anim.time > anim.length:
+    anim.time = anim.time.floorMod(anim.length)

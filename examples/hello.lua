@@ -1,7 +1,4 @@
-print("hello world!")
-animation { width = 400, height = 400, length = 4.0, framerate = 25 }
-
-sans = font("sans-serif")
+animation { width = 400, height = 400, length = 3.0, framerate = 25 }
 
 background = solid(hex"#20d4ac")
 white = solid(gray(255))
