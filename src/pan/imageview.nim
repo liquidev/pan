@@ -12,8 +12,16 @@ type
     image*: RTexture
     scrolling: bool
     scroll: Vec2[float]
-    zoom: float
+    zoomLevel: int
     lastZoomTime: float
+
+const
+  ZoomLevels = [
+    0.05, 0.1, 0.25, 0.5, 0.75, 1.0,
+    1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0,
+    12.5, 15.0, 17.5, 20.0
+  ]
+  Zoom100 = 5
 
 method width*(view: ImageView): float = view.fWidth
 method height*(view: ImageView): float = view.fHeight
@@ -22,6 +30,8 @@ proc `width=`*(view: ImageView, newWidth: float) =
   view.fWidth = newWidth
 proc `height=`*(view: ImageView, newHeight: float) =
   view.fHeight = newHeight
+
+proc zoom(view: ImageView): float = ZoomLevels[view.zoomLevel]
 
 {.push warning[LockLevel]: off.}
 
@@ -32,10 +42,13 @@ method onEvent*(view: ImageView, event: UiEvent) =
     if view.scrolling:
       event.consume()
     if event.kind == evMouseRelease and event.mouseButton == mb2:
-      view.zoom = 1
+      view.scroll = vec2(0.0, 0.0)
+      view.zoomLevel = Zoom100
       view.lastZoomTime = time()
+      event.consume()
   elif event.kind == evMouseScroll:
-    view.zoom *= 1 - (-event.scrollPos.y * 0.5)
+    view.zoomLevel += event.scrollPos.y.int
+    view.zoomLevel = view.zoomLevel.clamp(ZoomLevels.low, ZoomLevels.high)
     view.lastZoomTime = time()
   if view.scrolling and event.kind == evMouseMove:
     view.scroll += (event.mousePos - view.lastMousePos) / view.zoom
@@ -69,7 +82,7 @@ proc initImageView*(view: ImageView, x, y, width, height: float,
   view.width = width
   view.height = height
   view.image = image
-  view.zoom = 1.0
+  view.zoomLevel = Zoom100
 
 proc newImageView*(x, y, width, height: float, image: RTexture): ImageView =
   new(result)

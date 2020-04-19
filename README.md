@@ -45,7 +45,7 @@ pan file.lua render
 
 - Middle mouse button – pan view
 - Scroll wheel – zoom in/out
-- Right mouse button – reset zoom
+- Right mouse button – reset scroll and zoom
 - <kbd>Space</kbd> – play/pause
 - <kbd>←</kbd>, <kbd>→</kbd> – step one frame backwards/forwards
 - <kbd>← Backspace</kbd> – return to beginning of animation
