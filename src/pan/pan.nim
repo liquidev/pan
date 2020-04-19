@@ -14,7 +14,7 @@ import rdgui/control
 import rdgui/windows
 
 from api import Animation, step
-import imageview
+import animview
 import luaapi
 import res
 
@@ -51,31 +51,6 @@ var se: ScriptEngine
 gAnim = new(Animation)
 se.init(gAnim, luafile)
 
-proc updateWithFrame(tex: RTexture) =
-  if gAnim.surface != nil:
-    var
-      width = gAnim.surface.getWidth()
-      height = gAnim.surface.getHeight()
-      surfaceData = gAnim.surface.getData()
-      stride = gAnim.surface.getStride()
-      dataString = ""
-    for y in 0..<height:
-      for x in 0..<width:
-        let
-          index = x * sizeof(uint32) + y * stride
-          colorPtr = cast[ptr uint32](surfaceData[index].unsafeAddr)
-          color = colorPtr[]
-          alpha = cast[char](uint8(color shr 24))
-          red = cast[char](uint8((color shr 16) and 0xff))
-          green = cast[char](uint8((color shr 8) and 0xff))
-          blue = cast[char](uint8(color and 0xff))
-        dataString.add(red)
-        dataString.add(green)
-        dataString.add(blue)
-        dataString.add(alpha)
-    let image = newRImage(width, height, dataString)
-    tex.update(image)
-
 proc preview() =
   const
     BackgroundPng = slurp("assets/background.png")
@@ -110,13 +85,12 @@ proc preview() =
   gSans.tabWidth = 24
 
   wm.add(root)
-  var
-    frameView = newImageView(0, 0, 0, 0, frameTexture)
-  root.add(frameView)
+  var animView = newAnimationView(0, 0, 0, 0, gAnim)
+  root.add(animView)
 
   proc layout() =
-    frameView.width = surface.width
-    frameView.height = surface.height
+    animView.width = surface.width
+    animView.height = surface.height
   layout()
 
   win.onResize do (width, height: Natural):
@@ -170,8 +144,6 @@ proc preview() =
 
       if se.errors.isNone:
         se.renderFrame()
-
-      frameTexture.updateWithFrame()
 
       wm.draw(ctx, step)
 
