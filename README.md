@@ -14,7 +14,9 @@ simplicity of Lua as a scripting language, and providing hot reloading to make
 small edits fast and easy to do, it makes the creation of 2D motion graphics a
 breeze. Its render times are really fast, and the preview can run your animation
 in full 60 fps—even when your animation is to be exported in a lower framerate.
-Apart from that, its API is simple to learn and use. You don't even have to go
+The preview is capable of running even on low-end hardware, thanks to OpenGL
+hardware acceleration.
+Apart from that, pan's API is simple to learn and use. You don't even have to go
 online for a reference: it's built in to the program, right after the help text.
 Simply run `pan | less` and read away!
 
