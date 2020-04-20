@@ -215,7 +215,7 @@ do
     for i, iv in ipairs(intervals) do
       if pan.time > iv.tfrom and pan.time < iv.tto then
         return pan.ease(iv.vfrom, iv.vto, iv.tfrom, iv.tto, iv.easing)
-      elseif pan.time > iv.tto then
+      elseif pan.time >= iv.tto then
         fallback = iv.vto
       end
     end
