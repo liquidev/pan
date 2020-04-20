@@ -46,7 +46,9 @@ IconButton.renderer(Pan, button):
   ctx.color = gray(255)
   ctx.begin()
   ctx.texture = button.icon
-  ctx.rect(0, 0, button.width, button.height)
+  ctx.rect(button.width / 2 - button.icon.width / 2,
+           button.height / 2 - button.icon.height / 2,
+           button.icon.width.float, button.icon.height.float)
   ctx.draw()
   ctx.noTexture()
 
