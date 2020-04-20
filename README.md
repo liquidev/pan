@@ -83,3 +83,6 @@ end
 ![hello.lua rendered at 25 fps](hello.webp)
 
 You can find more examples in the `examples/` directory.
+
+# Certificates
+![pan is optimized for GT 210](GT210.png)
