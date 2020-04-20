@@ -12,7 +12,7 @@ bin           = @["pan/pan"]
 # Dependencies
 
 requires "nim >= 1.2.0"
-requires "cairo >= 1.1.0"
+requires "cairo#head"
 requires "rapid#head"
 requires "rdgui#head"
 requires "https://github.com/liquid600pgm/nimLUA"
