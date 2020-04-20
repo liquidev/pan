@@ -185,7 +185,7 @@ proc renderAll() =
       quit(1)
     let status = gAnim.surface.writeToPng(filename)
     if status != StatusSuccess:
-      stderr.writeLine("[in cairo] write to png failed: ", $status)
+      log "[in cairo] write to png failed: ", status
       quit(-1)
     stderr.write("\rrendering: ", $i, " / ", frameCount,
                  " (", formatFloat(percentage, precision = 3), "%)")

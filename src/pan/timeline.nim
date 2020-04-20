@@ -27,9 +27,11 @@ type
   PlaybackModule* = ref object of TimelineModule
     playing*: bool
 
+    buttonBox: Box
+
+    # dynamically changing elements
     iconPlay, iconPause: RTexture
     bPlayPause: IconButton
-
 
 # IconButton implementation
 
@@ -80,7 +82,7 @@ TimelineModule.renderer(Default, tm):
 # PlaybackModule implementation
 
 method layout(pm: PlaybackModule) =
-  pm.bPlayPause.pos = vec2(pm.width / 2 - 12, 0.0)
+  pm.buttonBox.pos = vec2(pm.width / 2 - pm.buttonBox.width / 2, 0.0)
 
 proc tick*(pm: PlaybackModule, deltaTime: float) =
   if pm.playing:
@@ -92,11 +94,17 @@ proc playPause*(pm: PlaybackModule) =
     if pm.playing: pm.iconPause
     else: pm.iconPlay
 
+proc jumpToStart*(pm: PlaybackModule) =
+  pm.anim.time = 0
+
+proc jumpToEnd*(pm: PlaybackModule) =
+  pm.anim.time = pm.anim.length
+
 {.push warning[LockLevel]: off.}
 
 method onEvent*(pm: PlaybackModule, event: UiEvent) =
 
-  pm.bPlayPause.event(event)
+  pm.buttonBox.event(event)
   if event.consumed: return
 
   case event.kind
@@ -106,10 +114,14 @@ method onEvent*(pm: PlaybackModule, event: UiEvent) =
       pm.playPause()
       event.consume()
     of keyLeft, keyRight:
-      let dir =
-        if event.key == keyLeft: -1.float
-        else: 1.float
-      pm.anim.step(1 / pm.anim.framerate * dir)
+      if mkShift in event.modKeys:
+        if event.key == keyLeft: pm.jumpToStart()
+        else: pm.jumpToEnd()
+      else:
+        let dir =
+          if event.key == keyLeft: -1.float
+          else: 1.float
+        pm.anim.step(1 / pm.anim.framerate * dir)
       event.consume()
     else: discard
   of evMousePress:
@@ -133,7 +145,7 @@ PlaybackModule.renderer(Default, pm):
   ctx.text(gSans, 4 + lenPos, 4, "/  " & lenText)
 
   # buttons
-  pm.bPlayPause.draw(ctx, step)
+  pm.buttonBox.draw(ctx, step)
 
 proc initPlaybackModule*(pm: PlaybackModule, tl: Timeline, x, y: float) =
   pm.initControl(x, y, PlaybackModuleDefault)
@@ -142,15 +154,35 @@ proc initPlaybackModule*(pm: PlaybackModule, tl: Timeline, x, y: float) =
   const
     IconPlayPng = slurp("assets/icons/play.png")
     IconPausePng = slurp("assets/icons/pause.png")
+    JumpToStartPng = slurp("assets/icons/jumpToStart.png")
+    JumpToEndPng = slurp("assets/icons/jumpToEnd.png")
   pm.iconPlay = newRTexture(readRImagePng(IconPlayPng))
   pm.iconPause = newRTexture(readRImagePng(IconPausePng))
+  let
+    iconJumpToStart = newRTexture(readRImagePng(JumpToStartPng))
+    iconJumpToEnd = newRTexture(readRImagePng(JumpToEndPng))
 
+  pm.buttonBox = newBox(0, 0)
   pm.bPlayPause = newIconButton(0, 0, 24, 24, pm.iconPlay, IconButtonPan)
+  var
+    jumpToStart = newIconButton(0, 0, 24, 24, iconJumpToStart, IconButtonPan)
+    jumpToEnd = newIconButton(0, 0, 24, 24, iconJumpToEnd, IconButtonPan)
+
   pm.bPlayPause.onClick = proc () =
     pm.playPause()
 
-  pm.onContain do:
-    pm.contain(pm.bPlayPause)
+  jumpToStart.onClick = proc () =
+    pm.jumpToStart()
+
+  jumpToEnd.onClick = proc () =
+    pm.jumpToEnd()
+
+  pm.onContain do ():
+    pm.contain(pm.buttonBox)
+    pm.buttonBox.add(jumpToStart)
+    pm.buttonBox.add(pm.bPlayPause)
+    pm.buttonBox.add(jumpToEnd)
+    pm.buttonBox.listHorizontal(0, 0)
 
 proc newPlaybackModule*(x, y: float, tl: Timeline): PlaybackModule =
   new(result)
