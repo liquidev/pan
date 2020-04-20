@@ -61,7 +61,8 @@ method onEvent*(view: AnimationView, event: UiEvent) =
 
 proc updateTexture(view: AnimationView) =
   if view.texture == nil:
-    view.texture = newRTexture(1, 1)
+    view.texture = newRTexture(1, 1, (fltLinear, fltNearest,
+                                      wrapClampToEdge, wrapClampToEdge))
   var data = view.anim.surface.getData()
   view.texture.update(view.anim.surface.getWidth(),
                       view.anim.surface.getHeight(),

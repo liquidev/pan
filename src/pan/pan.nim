@@ -1,11 +1,9 @@
 import std/options
 import std/os
 import std/parseopt
-import std/streams
 import std/strutils
 
 import cairo
-import nimLUA
 import rapid/gfx
 import rapid/gfx/text
 import rapid/res/images
@@ -17,6 +15,7 @@ from api import Animation, step
 import animview
 import luaapi
 import res
+import timeline
 
 
 # types
@@ -54,10 +53,8 @@ se.init(gAnim, luafile)
 proc preview() =
   const
     BackgroundPng = slurp("assets/background.png")
-    OpenSansTtf = slurp("assets/OpenSans-Regular.ttf")
-
-    Tc = (minFilter: fltLinear, magFilter: fltNearest,
-          wrapH: wrapClampToEdge, wrapV: wrapClampToEdge)
+    OpenSansTtf = slurp("assets/fonts/OpenSans-Regular.ttf")
+    OpenSansBoldTtf = slurp("assets/fonts/OpenSans-Bold.ttf")
 
   var
     win = initRWindow()
@@ -66,15 +63,7 @@ proc preview() =
       .open()
     surface = win.openGfx()
 
-    playing = false
-
     bgTexture = newRTexture(readRImagePng(BackgroundPng))
-    frameTexture =
-      if gAnim.surface != nil:
-        newRTexture(gAnim.surface.getWidth(), gAnim.surface.getHeight(), Tc)
-      else:
-        newRTexture(1, 1, Tc)  # fallback if the cairo surface wasn't
-                               # initialized properly
     wm = newWindowManager(win)
     root = wm.newWindow(0, 0, 0, 0)
 
@@ -83,14 +72,22 @@ proc preview() =
 
   gSans = newRFont(OpenSansTtf, 13)
   gSans.tabWidth = 24
+  gSansBold = newRFont(OpenSansBoldTtf, 13)
+  gSansBold.tabWidth = 24
 
   wm.add(root)
-  var animView = newAnimationView(0, 0, 0, 0, gAnim)
+  var
+    animView = newAnimationView(0, 0, 0, 0, gAnim)
+    timeline = newTimeline(0, 0, 0, gAnim)
   root.add(animView)
+  root.add(timeline)
 
   proc layout() =
+    timeline.pos = vec2(0.0, surface.height - timeline.height)
+    timeline.width = surface.width
     animView.width = surface.width
-    animView.height = surface.height
+    animView.height = surface.height - timeline.height
+
   layout()
 
   win.onResize do (width, height: Natural):
@@ -103,14 +100,6 @@ proc preview() =
       quit()
     of keyR:
       se.reload()
-    of keySpace:
-      playing = not playing
-    of keyLeft:
-      gAnim.time -= 1 / gAnim.framerate
-    of keyRight:
-      gAnim.time += 1 / gAnim.framerate
-    of keyBackspace:
-      gAnim.time = 0
     else: discard
 
   win.onKeyPress(onKey)
@@ -124,8 +113,7 @@ proc preview() =
         deltaTime = now - lastTime
       lastTime = now
 
-      if playing:
-        gAnim.step(deltaTime)
+      timeline.playback.tick(deltaTime)
 
       reloadPollTimer += deltaTime
       if reloadPollTimer > 0.25:
@@ -146,10 +134,6 @@ proc preview() =
         se.renderFrame()
 
       wm.draw(ctx, step)
-
-      ctx.text(gSans, 8, 8, "time: " &
-               formatFloat(gAnim.time, precision = 3) & " / " & $gAnim.length,
-               surface.width - 16, surface.height - 16, text.taLeft, taBottom)
 
       block showErrors:
         if se.errors.isSome:

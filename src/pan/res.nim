@@ -6,5 +6,5 @@ import api
 # global resources
 
 var
-  gSans*: RFont
+  gSans*, gSansBold*: RFont
   gAnim*: Animation
