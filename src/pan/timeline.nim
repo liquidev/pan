@@ -307,25 +307,33 @@ GroupsModule.renderer(Default, gm):
       let
         startX = gm.timeToCoords(0)
         endX = gm.timeToCoords(gm.anim.length)
-        zoomFactor = (endX - startX) / gm.anim.length
+        pixelsPerSecond = (endX - startX) / gm.anim.length
       ctx.color = gray(24)
       ctx.rect(startX, 0, endX - startX, gm.height)
       ctx.color = gray(255, 32)
       ctx.rect(startX, 1, 1, gm.height - 1)
       ctx.rect(endX, 1, 1, gm.height - 1)
-      if zoomFactor > 12:
-        discard
+      for s in 1..<gm.anim.length.int * 10:
+        let x = gm.timeToCoords(s / 10)
+        if pixelsPerSecond > 6 and s mod 10 == 0:
+          ctx.rect(x, gm.height / 2, 1, gm.height / 2)
+        elif pixelsPerSecond > 12 and s mod 5 == 0:
+          ctx.rect(x, 2 * gm.height / 3, 1, gm.height / 3)
+        elif pixelsPerSecond > 48:
+          ctx.rect(x, 5 * gm.height / 6, 1, gm.height / 6)
       ctx.draw()
 
       # playhead
       const PlayheadColor = hex"#4493A6"
-      let playheadX = gm.timeToCoords(gm.anim.time)
-      ctx.lineWidth = 2
+      let playheadX = round(gm.timeToCoords(gm.anim.time))
       ctx.begin()
       ctx.color = PlayheadColor
-      ctx.rect(playheadX, 0, 2, gm.height)
+      ctx.rect(playheadX, 0, 1, gm.height)
+      ctx.transform:
+        const TriSize = 4.0
+        ctx.translate(playheadX + 1, gm.height)
+        ctx.tri((0.0, -TriSize), (-TriSize, 0.0), (TriSize, 0.0))
       ctx.draw()
-      ctx.lineWidth = 1
 
       # border
       ctx.begin()
