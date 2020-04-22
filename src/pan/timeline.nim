@@ -20,6 +20,7 @@ type
     fWidth: float
     anim*: Animation
     playback*: PlaybackModule
+    groups*: GroupsModule
 
   TimelineModule = ref object of Control
     timeline: Timeline
@@ -32,6 +33,22 @@ type
     # dynamically changing elements
     iconPlay, iconPause: RTexture
     bPlayPause: IconButton
+
+  GroupsModule* = ref object of TimelineModule
+    # GroupsModule is a bit of a misnomer because it also handles the timeline
+    # itself. however I could not come up with a better name, so uhh… this is
+    # the result.
+    # this also handles scrubbing.
+
+    expanded*: bool
+
+    scroll, zoom: float
+    scrolling, scrubbing: bool
+
+    # dynamically changing elements
+    iconChevronRight, iconChevronUp: RTexture
+    bShowHide: IconButton
+
 
 # IconButton implementation
 
@@ -72,6 +89,14 @@ method height(tm: TimelineModule): float = 24
 
 proc anim(tm: TimelineModule): Animation = tm.timeline.anim
 
+{.push warning[LockLevel]: off.}
+
+method onEvent(tm: TimelineModule, event: UiEvent) =
+  if event.kind == evMousePress and tm.hasMouse:
+    event.consume()
+
+{.pop.}
+
 TimelineModule.renderer(Default, tm):
   ctx.begin()
   ctx.color = gray(32)
@@ -79,6 +104,11 @@ TimelineModule.renderer(Default, tm):
   ctx.color = gray(255, 32)
   ctx.rect(0, 0, tm.width, 1)
   ctx.draw()
+
+proc initTimelineModule(tm: TimelineModule, tl: Timeline, x, y: float,
+                        rend: ControlRenderer) =
+  tm.initControl(x, y, rend)
+  tm.timeline = tl
 
 
 # PlaybackModule implementation
@@ -126,10 +156,9 @@ method onEvent*(pm: PlaybackModule, event: UiEvent) =
         pm.anim.step(1 / pm.anim.framerate * dir)
       event.consume()
     else: discard
-  of evMousePress:
-    if pm.hasMouse:
-      event.consume()
   else: discard
+
+  procCall pm.TimelineModule.onEvent(event)
 
 {.pop.}
 
@@ -150,8 +179,7 @@ PlaybackModule.renderer(Default, pm):
   pm.buttonBox.draw(ctx, step)
 
 proc initPlaybackModule*(pm: PlaybackModule, tl: Timeline, x, y: float) =
-  pm.initControl(x, y, PlaybackModuleDefault)
-  pm.timeline = tl
+  pm.initTimelineModule(tl, x, y, PlaybackModuleDefault)
 
   const
     IconPlayPng = slurp("assets/icons/play.png")
@@ -186,9 +214,153 @@ proc initPlaybackModule*(pm: PlaybackModule, tl: Timeline, x, y: float) =
     pm.buttonBox.add(jumpToEnd)
     pm.buttonBox.listHorizontal(0, 0)
 
-proc newPlaybackModule*(x, y: float, tl: Timeline): PlaybackModule =
+proc newPlaybackModule*(tl: Timeline, x, y: float): PlaybackModule =
   new(result)
   result.initPlaybackModule(tl, x, y)
+
+
+# GroupsModule implementation
+
+proc mapRange(x: float, u, v: Slice[float]): float =
+  result = v.a + (x - u.a) / (u.b - u.a) * (v.b - v.a)
+
+proc toggle*(gm: GroupsModule) =
+  gm.expanded = not gm.expanded
+  gm.bShowHide.icon =
+    if gm.expanded: gm.iconChevronUp
+    else: gm.iconChevronRight
+
+proc timelineWidth(gm: GroupsModule): float =
+  gm.width - gm.bShowHide.width
+
+proc timelineX(gm: GroupsModule): float =
+  gm.bShowHide.width
+
+proc timelineHasMouse(gm: GroupsModule): bool =
+  gm.mouseInRect(gm.timelineX, 0, gm.timelineWidth, gm.height)
+
+proc timeAreaWidth(gm: GroupsModule, time: float): float =
+  (time + gm.scroll) * gm.zoom * gm.timelineWidth
+
+proc timeToCoords(gm: GroupsModule, time: float): float =
+  gm.timelineWidth / 2 - gm.timeAreaWidth(gm.anim.length) / 2 +
+  gm.timeAreaWidth(time)
+
+proc scrub(gm: GroupsModule, mouseX: float) =
+  let
+    startX = gm.timeToCoords(0)
+    endX = gm.timeToCoords(gm.anim.length)
+    time = mapRange(mouseX - gm.timelineX,
+                    startX..endX, 0.0..gm.anim.length)
+  gm.anim.jumpTo(time)
+
+{.push warning[LockLevel]: off.}
+
+method onEvent*(gm: GroupsModule, event: UiEvent) =
+
+  gm.bShowHide.event(event)
+  if event.consumed: return
+
+  if event.kind in {evMousePress, evMouseRelease}:
+    if gm.timelineHasMouse and event.kind == evMousePress:
+      gm.scrolling = event.mouseButton == mb3
+      gm.scrubbing = event.mouseButton == mb1
+      if gm.scrolling or gm.scrubbing:
+        event.consume()
+      if gm.scrubbing:
+        gm.scrub(event.mousePos.x)
+    else:
+      gm.scrolling = false
+      gm.scrubbing = false
+  elif event.kind == evMouseScroll and gm.timelineHasMouse:
+    gm.zoom *= (1 + event.scrollPos.y * 0.1)
+    event.consume()
+  elif gm.scrolling and event.kind == evMouseMove:
+    let
+      startX = gm.timeAreaWidth(0)
+      endX = gm.timeAreaWidth(1)
+      dx = event.mousePos.x - gm.lastMousePos.x
+      dt = dx / (endX - startX)
+    gm.scroll += dt * 2
+  elif gm.scrubbing and event.kind == evMouseMove:
+    gm.scrub(event.mousePos.x)
+
+  procCall gm.TimelineModule.onEvent(event)
+
+{.pop.}
+
+GroupsModule.renderer(Default, gm):
+  # background
+  TimelineModuleDefault(ctx, step, gm)
+
+  # timeline
+  ctx.transform:
+    let screenPos = gm.screenPos
+    ctx.scissor(screenPos.x + gm.bShowHide.width, screenPos.y,
+                gm.timelineWidth, gm.height):
+      ctx.translate(gm.bShowHide.width, 0)
+
+      # background
+      ctx.begin()
+      ctx.color = gray(16)
+      ctx.rect(0, 0, gm.timelineWidth, gm.height)
+      let
+        startX = gm.timeToCoords(0)
+        endX = gm.timeToCoords(gm.anim.length)
+        zoomFactor = (endX - startX) / gm.anim.length
+      ctx.color = gray(24)
+      ctx.rect(startX, 0, endX - startX, gm.height)
+      ctx.color = gray(255, 32)
+      ctx.rect(startX, 1, 1, gm.height - 1)
+      ctx.rect(endX, 1, 1, gm.height - 1)
+      if zoomFactor > 12:
+        discard
+      ctx.draw()
+
+      # playhead
+      const PlayheadColor = hex"#4493A6"
+      let playheadX = gm.timeToCoords(gm.anim.time)
+      ctx.lineWidth = 2
+      ctx.begin()
+      ctx.color = PlayheadColor
+      ctx.rect(playheadX, 0, 2, gm.height)
+      ctx.draw()
+      ctx.lineWidth = 1
+
+      # border
+      ctx.begin()
+      ctx.color = gray(255, 32)
+      ctx.rect(0, 0, gm.timelineWidth, 1)
+      ctx.draw()
+  ctx.color = gray(255)
+
+  # sub-controls
+  gm.bShowHide.draw(ctx, step)
+
+proc initGroupsModule*(gm: GroupsModule, tl: Timeline, x, y: float) =
+  gm.initTimelineModule(tl, x, y, GroupsModuleDefault)
+
+  if gm.anim.initialized:
+    gm.zoom = 1 / (gm.anim.length + 1)
+  else:
+    gm.zoom = 1 / 6
+
+  const
+    IconChevronRightPng = slurp("assets/icons/chevronRight.png")
+    IconChevronUpPng = slurp("assets/icons/chevronUp.png")
+  gm.iconChevronRight = newRTexture(readRImagePng(IconChevronRightPng))
+  gm.iconChevronUp = newRTexture(readRImagePng(IconChevronUpPng))
+
+  gm.bShowHide = newIconButton(0, 0, 24, 24, gm.iconChevronRight)
+  gm.bShowHide.onClick = proc () =
+    gm.toggle()
+
+  gm.onContain do:
+    gm.contain(gm.bShowHide)
+
+proc newGroupsModule*(tl: Timeline, x, y: float): GroupsModule =
+  new(result)
+  result.initGroupsModule(tl, x, y)
 
 
 # Timeline implementation
@@ -206,9 +378,11 @@ proc initTimeline*(tl: Timeline, x, y, width: float, anim: Animation) =
   tl.width = width
   tl.anim = anim
 
-  tl.playback = newPlaybackModule(0, 0, tl)
+  tl.playback = newPlaybackModule(tl, 0, 0)
+  tl.groups = newGroupsModule(tl, 0, 0)
 
   tl.onContain do:
+    tl.add(tl.groups)
     tl.add(tl.playback)
     tl.listVertical(0, 0)
 

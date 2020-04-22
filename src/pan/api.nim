@@ -10,6 +10,8 @@ type
     cairo*: ptr Context
     surface*: ptr Surface
 
+    initialized*: bool
+
   Color* = object
     r*, g*, b*, a*: float
 
@@ -210,10 +212,11 @@ proc scale*(anim: Animation, x, y: float) {.lua.} =
 proc rotate*(anim: Animation, z: float) {.lua.} =
   anim.cairo.rotate(z)
 
+proc jumpTo*(anim: Animation, time: float) =
+  anim.time = time.floorMod(anim.length)
+
 proc step*(anim: Animation, deltaTime: float) =
-  anim.time += deltaTime
-  if anim.time > anim.length: anim.time = 0
-  elif anim.time < 0: anim.time = anim.length
+  anim.jumpTo(anim.time + deltaTime)
 
 proc init*(anim: Animation, width, height: int,
            length, framerate: float) {.lua.} =
@@ -227,3 +230,5 @@ proc init*(anim: Animation, width, height: int,
   anim.framerate = framerate
   if anim.time > anim.length:
     anim.time = anim.time.floorMod(anim.length)
+
+  anim.initialized = true
