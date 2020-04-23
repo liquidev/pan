@@ -79,8 +79,9 @@ proc call*(se: ScriptEngine, argCount, resultCount: int): Option[string] =
   ## Calls the function at the top of the stack using the script engine's pcall
   ## error handler for nice stack traces. Returns ``some`` if an error
   ## occured while running the function.
-  if se.state.pcall(argCount.cint, resultCount.cint,
-                    se.pcallErrorHandlerIndex) != LUA_OK:
+  let errCode = se.state.pcall(argCount.cint, resultCount.cint,
+                               se.pcallErrorHandlerIndex)
+  if errCode != LUA_OK:
     result = some(se.state.getError())
 
 proc runFile*(se: ScriptEngine, filename: string): Option[string] =
@@ -109,6 +110,7 @@ proc reload*(se: var ScriptEngine) =
   ## Reloads the scripting engine's main string. This is used for hot reloading
   ## in preview mode. If an error occured, ``se.error`` is set to the error
   ## message.
+  se.errors = string.none
   let error = se.runFile(se.scriptMain)
   if error.isSome:
     se.error("error in luafile:\n" & error.get)
@@ -220,9 +222,9 @@ proc renderFrame*(se: var ScriptEngine) =
 
   se.state.getglobal("render")
   if not se.state.isfunction(-1):
-    se.state.pop(-1)
+    se.state.pop(1)
     se.error("error in luafile: no render() function")
-    se.state.pop(-1)
+    se.state.pop(1)
     return
 
   se.state.namespaceSet(panIndex, "time", se.anim.time)
@@ -231,4 +233,4 @@ proc renderFrame*(se: var ScriptEngine) =
     se.error("error in luafile (in render()):\n" & error.get)
   se.state.namespaceSet(panIndex, "time", luaNil)
 
-  se.state.pop(-1)
+  se.state.pop(1)
