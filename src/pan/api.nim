@@ -69,7 +69,11 @@ proc initColor*(r, g, b, a: float): Color =
 # Paint
 
 proc solid*(color: Color): Paint =
-  Paint(kind: pkSolid, color: color)
+  Paint(kind: pkSolid,
+        color: color,
+        lineWidth: 1,
+        lineCap: LineCapButt,
+        lineJoin: LineJoinMiter)
 
 proc lineWidth*(paint: Paint, newWidth: float): Paint =
   result = paint

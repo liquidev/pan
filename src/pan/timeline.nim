@@ -40,14 +40,37 @@ type
     # the result.
     # this also handles scrubbing.
 
-    expanded*: bool
-
-    scroll, zoom: float
+    scroll: Vec2[float]
+    zoom: float
     scrolling, scrubbing: bool
 
     # dynamically changing elements
     iconChevronRight, iconChevronUp: RTexture
     bShowHide: IconButton
+    viewer: GroupViewer
+
+  GroupViewer = ref object of Control
+    gm: GroupsModule
+
+    fHeight: float
+    groups: seq[MarkerGroup]
+
+  MarkerGroup* = ref object
+    label*: string
+    markers*: seq[Marker]
+    areas*: seq[Area]
+  MarkerKind* = enum
+    mkSquare
+    mkDiamond
+    mkCircle
+  Marker* = tuple
+    kind: MarkerKind
+    time: float
+  Area* = tuple
+    area: Slice[float]
+
+
+{.push warning[LockLevel]: off.}
 
 
 # IconButton implementation
@@ -89,13 +112,9 @@ method height(tm: TimelineModule): float = 24
 
 proc anim(tm: TimelineModule): Animation = tm.timeline.anim
 
-{.push warning[LockLevel]: off.}
-
 method onEvent(tm: TimelineModule, event: UiEvent) =
   if event.kind == evMousePress and tm.hasMouse:
     event.consume()
-
-{.pop.}
 
 TimelineModule.renderer(Default, tm):
   ctx.begin()
@@ -132,8 +151,6 @@ proc jumpToStart*(pm: PlaybackModule) =
 proc jumpToEnd*(pm: PlaybackModule) =
   pm.anim.time = pm.anim.length
 
-{.push warning[LockLevel]: off.}
-
 method onEvent*(pm: PlaybackModule, event: UiEvent) =
 
   pm.buttonBox.event(event)
@@ -159,8 +176,6 @@ method onEvent*(pm: PlaybackModule, event: UiEvent) =
   else: discard
 
   procCall pm.TimelineModule.onEvent(event)
-
-{.pop.}
 
 PlaybackModule.renderer(Default, pm):
   # background
@@ -225,9 +240,9 @@ proc mapRange(x: float, u, v: Slice[float]): float =
   result = v.a + (x - u.a) / (u.b - u.a) * (v.b - v.a)
 
 proc toggle*(gm: GroupsModule) =
-  gm.expanded = not gm.expanded
+  gm.viewer.visible = not gm.viewer.visible
   gm.bShowHide.icon =
-    if gm.expanded: gm.iconChevronUp
+    if gm.viewer.visible: gm.iconChevronUp
     else: gm.iconChevronRight
 
 proc timelineWidth(gm: GroupsModule): float =
@@ -240,11 +255,57 @@ proc timelineHasMouse(gm: GroupsModule): bool =
   gm.mouseInRect(gm.timelineX, 0, gm.timelineWidth, gm.height)
 
 proc timeAreaWidth(gm: GroupsModule, time: float): float =
-  (time + gm.scroll) * gm.zoom * gm.timelineWidth
+  (time + gm.scroll.x) * gm.zoom * gm.timelineWidth
 
 proc timeToCoords(gm: GroupsModule, time: float): float =
   gm.timelineWidth / 2 - gm.timeAreaWidth(gm.anim.length) / 2 +
   gm.timeAreaWidth(time)
+
+GroupViewer.renderer(Default, viewer):
+  # background
+  ctx.begin()
+  ctx.color = gray(24, 192)
+  ctx.rect(0, 0, viewer.width, viewer.height)
+  ctx.color = gray(255, 32)
+  ctx.rect(0, 0, viewer.width, 1)
+  ctx.draw()
+
+method width(viewer: GroupViewer): float = viewer.gm.width
+method height(viewer: GroupViewer): float = viewer.fHeight
+
+proc `height=`(viewer: GroupViewer, newHeight: float) =
+  viewer.fHeight = newHeight
+  echo viewer.isNil
+  echo viewer.gm.isNil
+  viewer.pos.y = -viewer.height
+
+proc initGroupViewer(viewer: GroupViewer, gm: GroupsModule, x, y: float) =
+  viewer.initControl(x, y, GroupViewerDefault)
+  viewer.gm = gm
+  viewer.height = 128
+
+proc newGroupViewer(gm: GroupsModule, x, y: float): GroupViewer =
+  new(result)
+  result.initGroupViewer(gm, x, y)
+
+proc newGroup*(gm: GroupsModule, label: string): MarkerGroup =
+  result = MarkerGroup(label: label)
+  gm.viewer.groups.add(result)
+
+proc resetGroups*(gm: GroupsModule) =
+  gm.viewer.groups.setLen(0)
+
+proc square*(group: MarkerGroup, time: float) =
+  group.markers.add (kind: mkSquare, time: time)
+
+proc diamond*(group: MarkerGroup, time: float) =
+  group.markers.add (kind: mkDiamond, time: time)
+
+proc circle*(group: MarkerGroup, time: float) =
+  group.markers.add (kind: mkCircle, time: time)
+
+proc area*(group: MarkerGroup, startTime, endTime: float) =
+  group.areas.add (area: startTime..endTime)
 
 proc scrub(gm: GroupsModule, mouseX: float) =
   let
@@ -253,8 +314,6 @@ proc scrub(gm: GroupsModule, mouseX: float) =
     time = mapRange(mouseX - gm.timelineX,
                     startX..endX, 0.0..gm.anim.length)
   gm.anim.jumpTo(time)
-
-{.push warning[LockLevel]: off.}
 
 method onEvent*(gm: GroupsModule, event: UiEvent) =
 
@@ -281,13 +340,11 @@ method onEvent*(gm: GroupsModule, event: UiEvent) =
       endX = gm.timeAreaWidth(1)
       dx = event.mousePos.x - gm.lastMousePos.x
       dt = dx / (endX - startX)
-    gm.scroll += dt * 2
+    gm.scroll.x += dt * 2
   elif gm.scrubbing and event.kind == evMouseMove:
     gm.scrub(event.mousePos.x)
 
   procCall gm.TimelineModule.onEvent(event)
-
-{.pop.}
 
 GroupsModule.renderer(Default, gm):
   # background
@@ -340,6 +397,10 @@ GroupsModule.renderer(Default, gm):
       ctx.color = gray(255, 32)
       ctx.rect(0, 0, gm.timelineWidth, 1)
       ctx.draw()
+
+  # groups
+  gm.viewer.draw(ctx, step)
+
   ctx.color = gray(255)
 
   # sub-controls
@@ -363,8 +424,12 @@ proc initGroupsModule*(gm: GroupsModule, tl: Timeline, x, y: float) =
   gm.bShowHide.onClick = proc () =
     gm.toggle()
 
+  gm.viewer = gm.newGroupViewer(0, 0)
+  gm.viewer.visible = false
+
   gm.onContain do:
     gm.contain(gm.bShowHide)
+    gm.contain(gm.viewer)
 
 proc newGroupsModule*(tl: Timeline, x, y: float): GroupsModule =
   new(result)
@@ -397,3 +462,6 @@ proc initTimeline*(tl: Timeline, x, y, width: float, anim: Animation) =
 proc newTimeline*(x, y, width: float, anim: Animation): Timeline =
   new(result)
   result.initTimeline(x, y, width, anim)
+
+
+{.pop.}

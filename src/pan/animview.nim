@@ -63,10 +63,11 @@ proc updateTexture(view: AnimationView) =
   if view.texture == nil:
     view.texture = newRTexture(1, 1, (fltLinear, fltNearest,
                                       wrapClampToEdge, wrapClampToEdge))
-  var data = view.anim.surface.getData()
-  view.texture.update(view.anim.surface.getWidth(),
-                      view.anim.surface.getHeight(),
-                      data, dataFormat = fmtUint32r8g8b8a8)
+  if view.anim.initialized:
+    var data = view.anim.surface.getData()
+    view.texture.update(view.anim.surface.getWidth(),
+                        view.anim.surface.getHeight(),
+                        data, dataFormat = fmtUint32r8g8b8a8)
 
 AnimationView.renderer(Default, view):
 
