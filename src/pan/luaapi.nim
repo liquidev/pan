@@ -160,12 +160,12 @@ proc init*(se: var ScriptEngine, anim: Animation, scriptMain: string) =
   se.pcallErrorHandlerIndex = lua.gettop()
 
   lua.bindEnum:
-    PanLineCap -> GLOBAL
-    PanLineJoin -> GLOBAL
-    PanFontWeight -> GLOBAL
-    PanFontSlant -> GLOBAL
-    PanTextHAlign -> GLOBAL
-    PanTextVAlign -> GLOBAL
+    PanLineCap
+    PanLineJoin
+    PanFontWeight
+    PanFontSlant
+    PanTextHAlign
+    PanTextVAlign
 
   lua.bindObject(Color):
     initColor -> "_create"  # defer for rgba(), rgb(), gray()
@@ -203,6 +203,7 @@ proc init*(se: var ScriptEngine, anim: Animation, scriptMain: string) =
     translate_l -> "translate"
     scale_l -> "scale"
     rotate_l -> "rotate"
+    pathPoint_l -> "pathPoint"
 
   se.state = lua
 

@@ -216,6 +216,9 @@ proc scale*(anim: Animation, x, y: float) {.lua.} =
 proc rotate*(anim: Animation, z: float) {.lua.} =
   anim.cairo.rotate(z)
 
+proc pathPoint*(anim: Animation, x, y: var float) {.lua.} =
+  anim.cairo.getCurrentPoint(x, y)
+
 proc jumpTo*(anim: Animation, time: float) =
   anim.time = time.floorMod(anim.length)
 

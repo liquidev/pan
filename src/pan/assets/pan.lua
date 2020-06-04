@@ -3,6 +3,27 @@
 
 do
 
+  -- enums
+
+  do
+    local enums = {
+      "PanLineCap",
+      "PanLineJoin",
+      "PanFontWeight",
+      "PanFontSlant",
+      "PanTextHAlign",
+      "PanTextVAlign",
+    }
+
+    for _, name in ipairs(enums) do
+      local enum = _G[name]
+      _G[name] = nil
+      for name, value in pairs(enum) do
+        pan[name] = value
+      end
+    end
+  end
+
   -- PROJECT
 
   local implInit = pan._init
@@ -36,7 +57,7 @@ do
   local implRgba = Color._create
   local implFont = Font._create
 
-  solid = Paint._createSolid
+  pan.solid = Paint._createSolid
 
   Color._create = nil
   Font._create = nil
@@ -133,12 +154,12 @@ do
   local implText = pan._text
   pan._text = nil
 
-  function pan.text(font, x, y, _text, size, w, h, halign, valign)
+  function pan.text(font, x, y, text_, size, w, h, halign, valign)
     if w == nil then w = 0 end
     if h == nil then h = 0 end
     if halign == nil then halign = taLeft end
     if valign == nil then valign = taTop end
-    implText(font, x, y, _text, size, w, h, halign, valign)
+    implText(font, x, y, text_, size, w, h, halign, valign)
   end
 
   function pan.textf(font, x, y, text_, size, paint, w, h, halign, valign)
@@ -157,6 +178,10 @@ do
 
   function pan.clamp(x, a, b)
     return math.min(math.max(x, a), b)
+  end
+
+  function pan.map(x, min0, max0, min1, max1)
+    return min1 + ((x - min0) / (max0 - min0)) * (max1 - min1)
   end
 
   -- ANIMATION
@@ -358,43 +383,43 @@ do
 
 
     pan.Easings = {
-      linear = linear,
-      step = step,
+      linear = pan.linear,
+      step = pan.step,
       In = {
-        sine = sineIn,
-        quad = quadIn,
-        cubic = cubicIn,
-        quartic = quarticIn,
-        quintic = quinticIn,
-        expo = expoIn,
-        circ = circIn,
-        back = backIn,
-        elastic = elasticIn,
-        bounce = bounceIn,
+        sine = pan.sineIn,
+        quad = pan.quadIn,
+        cubic = pan.cubicIn,
+        quartic = pan.quarticIn,
+        quintic = pan.quinticIn,
+        expo = pan.expoIn,
+        circ = pan.circIn,
+        back = pan.backIn,
+        elastic = pan.elasticIn,
+        bounce = pan.bounceIn,
       },
       Out = {
-        sine = sineOut,
-        quad = quadOut,
-        cubic = cubicOut,
-        quartic = quarticOut,
-        quintic = quinticOut,
-        expo = expoOut,
-        circ = circOut,
-        back = backOut,
-        elastic = elasticOut,
-        bounce = bounceOut,
+        sine = pan.sineOut,
+        quad = pan.quadOut,
+        cubic = pan.cubicOut,
+        quartic = pan.quarticOut,
+        quintic = pan.quinticOut,
+        expo = pan.expoOut,
+        circ = pan.circOut,
+        back = pan.backOut,
+        elastic = pan.elasticOut,
+        bounce = pan.bounceOut,
       },
       InOut = {
-        sine = sineInOut,
-        quad = quadInOut,
-        cubic = cubicInOut,
-        quartic = quarticInOut,
-        quintic = quinticInOut,
-        expo = expoInOut,
-        circ = circInOut,
-        back = backInOut,
-        elastic = elasticInOut,
-        bounce = bounceInOut,
+        sine = pan.sineInOut,
+        quad = pan.quadInOut,
+        cubic = pan.cubicInOut,
+        quartic = pan.quarticInOut,
+        quintic = pan.quinticInOut,
+        expo = pan.expoInOut,
+        circ = pan.circInOut,
+        back = pan.backInOut,
+        elastic = pan.elasticInOut,
+        bounce = pan.bounceInOut,
       },
     }
   end
@@ -448,6 +473,14 @@ do
     end
   end
 
+  local pkgLoaded = package.loaded
+  local pkgRequire = require
+  function pan.require(modname)
+    local module = pkgRequire(modname)
+    pkgLoaded[modname] = false
+    return module
+  end
+
   -- lock the pan namespace from outside modifications
   local immutable = {
     __newindex = function (tab, key, val)
@@ -460,10 +493,12 @@ do
   -- this effectively makes all pan functions accessible from the global
   -- namespace, but in case they're overwritten, they're still available from
   -- the pan namespace which is immutable
-  -- this is not true for values like pan.time which are only set in the pan
-  -- namespace
   for key, val in pairs(pan) do
-    _G[key] = val
+    -- we only override functions that are not in the global namespace already,
+    -- so `require` (and maybe other functions in the future) are ignored
+    if _G[key] == nil then
+      _G[key] = val
+    end
   end
 
 end

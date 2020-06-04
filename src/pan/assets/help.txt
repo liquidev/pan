@@ -93,7 +93,7 @@ LUA API:
     the only way to enlarge it is by using push() and pop().
 
   pan.line(x0, y0, x1, y1, paint)
-    shortcut for drawing a line using begin(), vertex(), and stroke()
+    shortcut for drawing a line using begin(), moveTo(), lineTo() and stroke()
   pan.rects(x, y, w, h, paint)  pan.rectf(x, y, w, h, paint)
     draws a stroked or filled rectangle at the given coordinates (top left),
     with the given size and paint
@@ -114,6 +114,9 @@ LUA API:
     given dimensions, and at the specified position.
     valid values for halign:  taLeft, taCenter, taRight
     for valign:               taTop, taMiddle, taBottom
+    after the text is rendered, the path position is set to where the next
+    character should be placed for rendering with
+    w = 0, h = 0, halign = taLeft, valign = taBottom.
   pan.textf(font, x, y, text, size, paint,
            [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
     draws filled text. see above
@@ -136,6 +139,8 @@ LUA API:
 
   pan.clamp(x, a, b)
     clamps the given value x between a and b.
+  pan.map(x, min0, max0, min1, max1)
+    maps x from the range min0..max0 to min1..max1.
 
   -- ANIMATION
 
@@ -178,9 +183,13 @@ LUA API:
   -- EXTRA
 
   pan.len(x)
-    Returns the length of the given string or table. this is equivalent to #x
+    returns the length of the given string or table. this is equivalent to #x
     for strings, but counts all the keys for tables. returns 0 for other types.
   pan.repr(x)
-    Returns the string representation of a value for debugging. This uses
+    returns the string representation of a value for debugging. This uses
     tostring for all types except tables, where it returns the keys and values
     of the table.
+  pan.require(modname)
+    override of the vanilla Lua `require` function with one that does not cache
+    loaded modules. This is very useful if your animation is made out of a few
+    smaller, reusable modules.
