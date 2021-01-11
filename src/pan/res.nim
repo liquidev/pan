@@ -1,4 +1,4 @@
-import rapid/gfx/text
+import rapid/graphics
 
 import api
 
@@ -6,5 +6,5 @@ import api
 # global resources
 
 var
-  gSans*, gSansBold*: RFont
+  gSans*, gSansBold*: graphics.Font
   gAnim*: Animation
