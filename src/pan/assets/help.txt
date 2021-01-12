@@ -65,8 +65,14 @@ LUA API:
     clears the canvas with a paint.
   pan.push()
     saves the current drawing parameters (transform, clip) onto a stack.
+    this does not affect the current path. if you want to save/restore the path,
+    use pushPath() and popPath().
   pan.pop()
     restores the parameters off of the stack.
+  pan.pushPath()
+    pushes the current path onto the path stack.
+  pan.popPath()
+    pops the last path saved onto the path stack off of it and restores it.
 
   pan.begin()
     begins drawing a path. call this before any path drawing operation,
@@ -76,6 +82,10 @@ LUA API:
   pan.lineTo(x, y)
     adds a line from the current position to the given position to the given
     path. moves the current position to (x, y)
+  pan.moveBy(dx, dy)
+    similar to moveTo(), but moves the cursor relative to its current position.
+  pan.relLineTo(dx, dy)
+    similar to lineTo(), but moves the cursor relative to its current position.
   pan.rect(x, y, w, h)
     adds a rectangle to the current path.
   pan.arc(x, y, r, astart, aend)
@@ -83,6 +93,8 @@ LUA API:
   pan.close()
     closes the existing path by creating a line from the current point to the
     starting point
+  pan.pathCursor()
+    returns two values (x, y) containing the current path position (cursor).
   pan.fill(paint)
     fills the path with the given paint.
   pan.stroke(paint)
@@ -117,6 +129,10 @@ LUA API:
     after the text is rendered, the path position is set to where the next
     character should be placed for rendering with
     w = 0, h = 0, halign = taLeft, valign = taBottom.
+  pan.addText(font, text, size)
+    adds text to the path, but does not reposition the cursor initially.
+    instead, the cursor has to be positioned using moveTo() or another text()
+    call.
   pan.textf(font, x, y, text, size, paint,
            [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
     draws filled text. see above
@@ -147,6 +163,11 @@ LUA API:
   pan.time
     stores the current frame's time, in seconds.
     only valid during render()
+  pan.warpTime(amount, callback)
+    subtracts the given amount from the time "perceived" in the given callback.
+    this is the only way to change the value of pan.time without resorting to
+    hacks. the purpose of this is to not make the user have to pass
+    a time offset parameter around to functions.
   pan.length
     stores the animation's length in seconds
   pan.framerate
