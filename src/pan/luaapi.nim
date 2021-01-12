@@ -71,7 +71,7 @@ proc loadString(se: ScriptEngine, filename, str: string): Option[string] =
   var state: StringReaderState
   state.str = cast[cstring](alloc((str.len + 1) * sizeof(char)))
   copyMem(state.str, str[0].unsafeAddr, (str.len + 1) * sizeof(char))
-  if se.state.load(stringReader, addr state, filename, "bt") != LUA_OK:
+  if se.state.load(stringReader, addr state, '@' & filename, "bt") != LUA_OK:
     result = some(se.state.getError())
   dealloc(state.str)
 
@@ -115,16 +115,22 @@ proc reload*(se: var ScriptEngine) =
   if error.isSome:
     se.error("error in luafile:\n" & error.get)
 
-macro genGlueProcs(procs: static seq[NimNode]): untyped =
+macro genGlueProcs(): untyped =
   ## Generates glue procedures for binding in ``initScriptEngine``.
   result = newStmtList()
-  for procedure in procs:
+  for procedure in cgLuaProcs:
     var wrapper = newProc(name = ident($procedure.name & "_l"))
     wrapper.params[0] = procedure.params[0]
-    wrapper.params.add(procedure.params[2..^1])
+    for defs in procedure.params[2..^1]:
+      var newDefs = newNimNode(nnkIdentDefs)
+      for name in defs[0..^3]:
+        newDefs.add(ident($name))
+      newDefs.add(defs[^2..^1])
+      wrapper.params.add(newDefs)
     wrapper.body = newStmtList()
-    var call = newCall(newDotExpr(bindSym"gAnim", procedure.name))
-    for identDefs in procedure.params[2..^1]:
+    wrapper.addPragma(ident"cdecl")
+    var call = newCall(procedure.name, bindSym"gAnim")
+    for identDefs in wrapper.params[1..^1]:
       for name in identDefs[0..^3]:
         call.add(name)
     wrapper.body.add(call)
@@ -151,7 +157,7 @@ proc init*(se: var ScriptEngine, anim: Animation, scriptMain: string) =
   se.anim = anim
   se.scriptMain = scriptMain
 
-  genGlueProcs(cgLuaProcs)
+  genGlueProcs()
 
   var lua = newNimLua()
   lua.openlibs()
@@ -189,21 +195,26 @@ proc init*(se: var ScriptEngine, anim: Animation, scriptMain: string) =
     clear_l -> "clear"
     push_l -> "push"
     pop_l -> "pop"
+    pushPath_l -> "pushPath"
+    popPath_l -> "popPath"
     begin_l -> "begin"
     moveTo_l -> "moveTo"
+    moveBy_l -> "moveBy"
     lineTo_l -> "lineTo"
+    relLineTo_l -> "relLineTo"
     rect_l -> "rect"
     arc_l -> "arc"
     close_l -> "close"
     fill_l -> "fill"
     stroke_l -> "stroke"
     clip_l -> "clip"
-    textSize_l -> "textSize"
+    textSize_l -> "_textSize"
     text_l -> "_text"
+    addText_l -> "addText"
     translate_l -> "translate"
     scale_l -> "scale"
     rotate_l -> "rotate"
-    pathPoint_l -> "pathPoint"
+    pathCursor_l -> "_pathCursor"
 
   se.state = lua
 
@@ -212,8 +223,6 @@ proc init*(se: var ScriptEngine, anim: Animation, scriptMain: string) =
   if error.isSome:
     quit("error in luapan:\n" & error.get &
          "\nplease report an issue on github", -1)
-
-  se.reload()
 
 proc renderFrame*(se: var ScriptEngine) =
   ## Renders a frame of animation at the time set in the scripting engine's

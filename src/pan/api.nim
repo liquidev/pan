@@ -1,3 +1,4 @@
+import std/macros
 import std/math
 
 import cairo
@@ -11,6 +12,8 @@ type
     surface*: ptr Surface
 
     initialized*: bool
+
+    pathStack: seq[ptr Path]
 
   Color* = object
     r*, g*, b*, a*: float
@@ -102,9 +105,9 @@ proc destroy*(paint: Paint) =
 proc usePaint(anim: Animation, paint: Paint) =
   if paint.kind == pkSolid:
     anim.cairo.setSourceRgba(paint.color.r,
-                           paint.color.g,
-                           paint.color.b,
-                           paint.color.a)
+                             paint.color.g,
+                             paint.color.b,
+                             paint.color.a)
   else:
     anim.cairo.setSource(paint.patt)
   anim.cairo.setLineWidth(paint.lineWidth)
@@ -136,6 +139,10 @@ proc useFont(anim: Animation, font: Font) =
 var cgLuaProcs* {.compiletime.}: seq[NimNode]
 
 macro lua(procedure: typed) =
+  var procedure = procedure
+  if procedure.kind == nnkSym:
+    procedure = procedure.getImpl
+
   cgLuaProcs.add(procedure)
 
 proc clear*(anim: Animation, paint: Paint) {.lua.} =
@@ -148,6 +155,15 @@ proc push*(anim: Animation) {.lua.} =
 proc pop*(anim: Animation) {.lua.} =
   anim.cairo.restore()
 
+proc pushPath*(anim: Animation) {.lua.} =
+  anim.pathStack.add(anim.cairo.copyPath())
+
+proc popPath*(anim: Animation) {.lua.} =
+  anim.cairo.newPath()
+  let path = anim.pathStack.pop()
+  anim.cairo.appendPath(path)
+  path.destroy()
+
 proc begin*(anim: Animation) {.lua.} =
   anim.cairo.newPath()
 
@@ -156,6 +172,12 @@ proc moveTo*(anim: Animation, x, y: float) {.lua.} =
 
 proc lineTo*(anim: Animation, x, y: float) {.lua.} =
   anim.cairo.lineTo(x, y)
+
+proc moveBy*(anim: Animation, dx, dy: float) {.lua.} =
+  anim.cairo.relMoveTo(dx, dy)
+
+proc relLineTo*(anim: Animation, dx, dy: float) {.lua.} =
+  anim.cairo.relLineTo(dx, dy)
 
 proc rect*(anim: Animation, x, y, w, h: float) {.lua.} =
   anim.cairo.rectangle(x, y, w, h)
@@ -177,8 +199,8 @@ proc stroke*(anim: Animation, paint: Paint) {.lua.} =
 proc clip*(anim: Animation) {.lua.} =
   anim.cairo.clipPreserve()
 
-proc textSize*(anim: Animation, font: Font, text: string, size: float,
-               w, h: var float) {.lua.} =
+proc textSize*(anim: Animation, font: Font, text: string,
+               size: float): tuple[w, h: float] =
   var
     fextents: FontExtents
     textents: TextExtents
@@ -186,13 +208,18 @@ proc textSize*(anim: Animation, font: Font, text: string, size: float,
   anim.cairo.setFontSize(size)
   anim.cairo.fontExtents(addr fextents)
   anim.cairo.textExtents(text, addr textents)
-  w = textents.width + textents.xBearing
-  h = fextents.ascent
+  result.w = textents.width + textents.xBearing
+  result.h = fextents.ascent
+lua textSize  # can't use {.lua.} here for some reason but whatever
+
+proc addText*(anim: Animation, font: Font, text: string, size: float) {.lua.} =
+  anim.useFont(font)
+  anim.cairo.setFontSize(size)
+  anim.cairo.textPath(text)
 
 proc text*(anim: Animation, font: Font, x, y: float, text: string, size: float,
            w, h: float, halign: PanTextHAlign, valign: PanTextVAlign) {.lua.} =
-  var tw, th: float
-  anim.textSize(font, text, size, tw, th)
+  var (tw, th) = textSize(anim, font, text, size)
   let
     tx =
       case halign
@@ -216,8 +243,8 @@ proc scale*(anim: Animation, x, y: float) {.lua.} =
 proc rotate*(anim: Animation, z: float) {.lua.} =
   anim.cairo.rotate(z)
 
-proc pathPoint*(anim: Animation, x, y: var float) {.lua.} =
-  anim.cairo.getCurrentPoint(x, y)
+proc pathCursor*(anim: Animation): tuple[x, y: float] {.lua.} =
+  anim.cairo.getCurrentPoint(result[0], result[1])
 
 proc jumpTo*(anim: Animation, time: float) =
   anim.time = time.floorMod(anim.length)

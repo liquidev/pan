@@ -108,41 +108,61 @@ do
 
   -- DRAWING
 
+  local implPathCursor = pan._pathCursor
+  pan._pathCursor = nil
+
+  function pan.pathCursor()
+    local pos = implPathCursor()
+    return pos.x, pos.y
+  end
+
   function pan.line(x0, y0, x1, y1, paint)
+    pan.pushPath()
     pan.begin()
     pan.moveTo(x0, y0)
     pan.lineTo(x1, y1)
     pan.stroke(paint)
+    pan.popPath()
   end
 
   function pan.rects(x, y, w, h, paint)
+    pan.pushPath()
     pan.begin()
     pan.rect(x, y, w, h)
     pan.stroke(paint)
+    pan.popPath()
   end
 
   function pan.rectf(x, y, w, h, paint)
+    pan.pushPath()
     pan.begin()
     pan.rect(x, y, w, h)
     pan.fill(paint)
+    pan.popPath()
   end
 
   function pan.circles(x, y, r, paint)
+    pan.pushPath()
     pan.begin()
     pan.arc(x, y, r, 0, math.pi * 2)
     pan.stroke(paint)
+    pan.popPath()
   end
 
   function pan.circlef(x, y, r, paint)
+    pan.pushPath()
     pan.begin()
     pan.arc(x, y, r, 0, math.pi * 2)
     pan.fill(paint)
+    pan.popPath()
   end
 
   function pan.cliprect(x, y, w, h)
+    pan.pushPath()
     pan.begin()
     pan.rect(x, y, w, h)
     pan.clip()
+    pan.popPath()
   end
 
   function pan.font(name, weight, slant)
@@ -152,7 +172,9 @@ do
   end
 
   local implText = pan._text
+  local implTextSize = pan._textSize
   pan._text = nil
+  pan._textSize = nil
 
   function pan.text(font, x, y, text_, size, w, h, halign, valign)
     if w == nil then w = 0 end
@@ -163,15 +185,24 @@ do
   end
 
   function pan.textf(font, x, y, text_, size, paint, w, h, halign, valign)
+    pan.pushPath()
     pan.begin()
     pan.text(font, x, y, text_, size, w, h, halign, valign)
     pan.fill(paint)
+    pan.popPath()
   end
 
   function pan.texts(font, x, y, text_, size, paint, w, h, halign, valign)
+    pan.pushPath()
     pan.begin()
     pan.text(font, x, y, text_, size, w, h, halign, valign)
     pan.stroke(paint)
+    pan.popPath()
+  end
+
+  function pan.textSize(font, text, size)
+    local size = implTextSize(font, text, size)
+    return size.w, size.h
   end
 
   -- MATH
@@ -185,6 +216,16 @@ do
   end
 
   -- ANIMATION
+
+  function pan.warpTime(amount, callback)
+    if pan.time == nil then
+      error("warpTime() can only be called in render()")
+    end
+    local oldTime = pan.time
+    rawset(pan, "time", oldTime - amount)
+    callback()
+    rawset(pan, "time", oldTime)
+  end
 
   function pan.linear(x)
     return x

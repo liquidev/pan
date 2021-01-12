@@ -1,23 +1,12 @@
+import aglet
 import cairo
-import rapid/gfx
-import rapid/gfx/text
-import rapid/res/textures
-import rdgui/control
-import rdgui/event
+import rapid/graphics
+import rapid/graphics/meshes
+import rapid/graphics/vertex_types
+import rapid/ui
 
 import api
 import res
-
-type
-  AnimationView* = ref object of Control
-    fWidth, fHeight: float
-    anim*: Animation
-    surfaceDrawProgram: RProgram
-    texture: RTexture
-    scrolling: bool
-    scroll: Vec2[float]
-    zoomLevel: int
-    lastZoomTime: float
 
 const
   ZoomLevels = [
@@ -27,97 +16,112 @@ const
   ]
   Zoom100 = 5
 
-method width*(view: AnimationView): float = view.fWidth
-method height*(view: AnimationView): float = view.fHeight
+type
+  AnimationView* = object
+    anim*: Animation
 
-proc `width=`*(view: AnimationView, newWidth: float) =
-  view.fWidth = newWidth
-proc `height=`*(view: AnimationView, newHeight: float) =
-  view.fHeight = newHeight
+    textureTime: float  # the time for which the texture was rendered
+    texture: Texture2D[Rgba8]
 
-proc zoom(view: AnimationView): float = ZoomLevels[view.zoomLevel]
+    zoomLevel: int
+    zoomLevelHudEndTime: float
+    panning: bool
+    pan: Vec2f  # haha, get it?
 
-{.push warning[LockLevel]: off.}
+proc initAnimationView*(ui: PanUi, anim: Animation): AnimationView =
+  ## Creates and initializes a new animation view.
 
-method onEvent*(view: AnimationView, event: UiEvent) =
-  if event.kind in {evMousePress, evMouseRelease}:
-    view.scrolling = event.kind == evMousePress and
-                     event.mouseButton == mb3
-    if view.scrolling:
-      event.consume()
-    if event.kind == evMouseRelease and event.mouseButton == mb2:
-      view.scroll = vec2(0.0, 0.0)
-      view.zoomLevel = Zoom100
-      view.lastZoomTime = time()
-      event.consume()
-  elif event.kind == evMouseScroll:
-    view.zoomLevel += event.scrollPos.y.int
-    view.zoomLevel = view.zoomLevel.clamp(ZoomLevels.low, ZoomLevels.high)
-    view.lastZoomTime = time()
-  if view.scrolling and event.kind == evMouseMove:
-    view.scroll += (event.mousePos - view.lastMousePos) / view.zoom
+  result = AnimationView(
+    anim: anim,
+    textureTime: -1234,  # just some easily recognizable value in case of error
+    texture: ui.graphics.window.newTexture2D[:Rgba8](),
+    zoomLevel: Zoom100,
+    zoomLevelHudEndTime: -0.1,
+  )
 
-{.pop.}
+  # cairo operates on ARGB, but OpenGL wants RGBA, so we need to apply a
+  # swizzle mask to convert between them
+  when cpuEndian == bigEndian:
+    result.texture.swizzleMask = [ccGreen, ccBlue, ccAlpha, ccRed]
+  else:
+    # on little endian channels are ordered as BGRA
+    result.texture.swizzleMask = [ccBlue, ccGreen, ccRed, ccAlpha]
 
-proc updateTexture(view: AnimationView) =
-  if view.texture == nil:
-    view.texture = newRTexture(1, 1, (fltLinear, fltNearest,
-                                      wrapClampToEdge, wrapClampToEdge))
-  if view.anim.initialized:
-    var data = view.anim.surface.getData()
-    view.texture.update(view.anim.surface.getWidth(),
-                        view.anim.surface.getHeight(),
-                        data, dataFormat = fmtUint32r8g8b8a8)
+proc updateTexture*(av: var AnimationView) =
+  ## Updates the displayed texture to the current animation frame.
 
-AnimationView.renderer(Default, view):
+  if av.anim.initialized:
+    if av.textureTime != av.anim.time:
+      let
+        size = vec2i(av.anim.surface.getWidth, av.anim.surface.getHeight)
+        data = cast[ptr Rgba8](av.anim.surface.getData)
+      av.texture.upload(size, data)
+      av.textureTime = av.anim.time
 
-  # initialize the surface draw shader program
-  if view.surfaceDrawProgram == nil:
-    view.surfaceDrawProgram = ctx.gfx.newRProgram(
-      RDefaultVshSrc,
-      """
-      vec4 rFragment(vec4 col, sampler2D tex, vec2 pos, vec2 uv) {
-        uv.y = 1.0 - uv.y;
-        return rTexel(tex, uv).gbar * col;
-      }
-      """,
-    )
+proc zoom*(av: AnimationView): float32 =
+  ## Returns the animation view's zoom level.
+  ZoomLevels[av.zoomLevel]
 
-  view.updateTexture()
+proc animationView*(ui: PanUi, av: var AnimationView, size: Vec2f) =
+  ## Draws an animation view and processes its events.
 
-  # draw the surface texture
-  ctx.transform:
-    ctx.translate(view.width / 2, view.height / 2)
-    ctx.scale(view.zoom, view.zoom)
-    ctx.translate(-view.texture.width / 2, -view.texture.height / 2)
-    ctx.translate(view.scroll.x, view.scroll.y)
-    ctx.begin()
-    ctx.program = view.surfaceDrawProgram
-    ctx.texture = view.texture
-    ctx.rect(0, 0, view.texture.width.float, view.texture.height.float)
-    ctx.draw()
-    ctx.noTexture()
-    ctx.defaultProgram()
+  av.updateTexture()
 
-  if time() - view.lastZoomTime in 0.0..1.5:
-    let zoomPercent = $int(view.zoom * 100) & "%"
-    ctx.begin()
-    ctx.color = gray(0, 128)
-    ctx.rect(view.width - 24 - gSans.widthOf(zoomPercent), 8,
-             16 + gSans.widthOf(zoomPercent), 24)
-    ctx.draw()
-    ctx.color = gray(255)
-    ctx.text(gSans, view.width - 16, 12, zoomPercent, halign = text.taRight)
+  ui.box size, blFreeform:
 
-proc initAnimationView*(view: AnimationView, x, y, width, height: float,
-                        anim: Animation) =
-  view.initControl(x, y, AnimationViewDefault)
-  view.width = width
-  view.height = height
-  view.anim = anim
-  view.zoomLevel = Zoom100
+    # rendering
 
-proc newAnimationView*(x, y, width, height: float,
-                       anim: Animation): AnimationView =
-  new(result)
-  result.initAnimationView(x, y, width, height, anim)
+    ui.drawInBox:
+      let
+        oldBatch = ui.graphics.currentBatch
+        textureSize = av.texture.size.vec2f
+        rect = rectf(vec2f(0, 0), textureSize)
+
+      ui.graphics.batchNewSampler av.texture.sampler(
+        minFilter = fmLinear,
+        magFilter = fmNearest,
+      )
+
+      ui.graphics.transform:
+        ui.graphics.translate(ui.size / 2)
+        ui.graphics.scale(av.zoom)
+        ui.graphics.translate(-textureSize / 2)
+        ui.graphics.translate(av.pan)
+        ui.graphics.rawRectangle(rect)
+
+      ui.graphics.batchNewCopy(oldBatch)
+
+    # ok zoomer
+
+    let previousZoomLevel = av.zoomLevel
+
+    av.zoomLevel += ui.scroll.y.int
+    av.zoomLevel = av.zoomLevel.clamp(ZoomLevels.low, ZoomLevels.high)
+
+    ui.mousePressed mbRight:
+      av.zoomLevel = Zoom100
+      reset av.pan
+
+    if av.zoomLevel != previousZoomLevel:
+      av.zoomLevelHudEndTime = timeInSeconds() + 1.5
+
+    # ok panner
+
+    ui.mousePressed mbMiddle:
+      av.panning = true
+    if ui.mouseButtonJustReleased(mbMiddle):
+      av.panning = false
+
+    if av.panning:
+      av.pan += ui.deltaMousePosition / av.zoom
+
+    # zoom HUD
+
+    if timeInSeconds() < av.zoomLevelHudEndTime:
+      let zoomPercent = $int(av.zoom * 100) & '%'
+      ui.pad 8
+      ui.box vec2f(16 + ui.font.textWidth(zoomPercent), 24), blFreeform:
+        ui.align (apRight, apTop)
+        ui.fill hex"#0000007f"
+        ui.pad 8
+        ui.text(zoomPercent, colWhite, (apLeft, apMiddle))
