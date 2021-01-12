@@ -15,9 +15,9 @@ do
       "PanTextVAlign",
     }
 
-    for _, name in ipairs(enums) do
-      local enum = _G[name]
-      _G[name] = nil
+    for _, typename in ipairs(enums) do
+      local enum = _G[typename]
+      _G[typename] = nil
       for name, value in pairs(enum) do
         pan[name] = value
       end
@@ -201,8 +201,8 @@ do
   end
 
   function pan.textSize(font, text, size)
-    local size = implTextSize(font, text, size)
-    return size.w, size.h
+    local s = implTextSize(font, text, size)
+    return s.w, s.h
   end
 
   -- MATH
@@ -498,10 +498,10 @@ do
         if #buffer > 0 then
           table.insert(lines, table.concat(buffer))
         end
-        local indent = string.rep(' ', level)
+        local spaces = string.rep(' ', level)
         local indented = {}
         for _, line in pairs(lines) do
-          table.insert(indented, indent..line..'\n')
+          table.insert(indented, spaces..line..'\n')
         end
         return table.concat(indented)
       end
@@ -524,7 +524,7 @@ do
 
   -- lock the pan namespace from outside modifications
   local immutable = {
-    __newindex = function (tab, key, val)
+    __newindex = function ()
       error("the pan namespace is immutable")
     end
   }
