@@ -136,8 +136,6 @@ macro genGlueProcs(): untyped =
     wrapper.body.add(call)
     result.add(wrapper)
 
-  echo result.repr
-
 proc namespaceSet*[T](lua: PState, tableIndex: int, key: string, val: T) =
   ## Sets a variable in tableIndex *and* the global namespace.
   discard lua.pushstring(key)

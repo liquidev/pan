@@ -10,6 +10,10 @@ import aglet/window/glfw
 import cairo
 import rapid/graphics
 import rapid/graphics/image
+import rapid/graphics/meshes
+import rapid/graphics/programs
+import rapid/graphics/vertex_types
+import rapid/ui
 
 from api import Animation, step
 import animview
@@ -61,12 +65,22 @@ proc preview() =
   aglet.initWindow()
 
   var
-    window = aglet.newWindowGlfw(1280, 720, "pan – " & luafile)
+    window = aglet.newWindowGlfw(960, 540, "pan · " & luafile,
+                                 winHints(resizable = true))
     graphics = window.newGraphics()
 
-    bgTexture = window.newTexture2D(Rgba8, readPngImage(BackgroundPng))
+    directTextured = window.programDirect(Vertex2dUv)
+    dpDefault = defaultDrawParams()
 
-    timeline: Timeline
+    background = window.newTexture2D(Rgba8, readPngImage(BackgroundPng))
+    backgroundRect = window.newMesh[:Vertex2dUv](muStream, dpTriangles)
+
+    ui = block:
+      var r = new PanUi
+      r.init(window, graphics)
+      r
+    animationView = ui.initAnimationView(gAnim)
+    timeline = ui.initTimeline(gAnim)
 
     reloadPollTimer: float32 = 0.0
     lastLuafileMod = getLastModificationTime(luafile)
@@ -82,7 +96,7 @@ proc preview() =
   while not window.closeRequested:
 
     window.pollEvents proc (event: InputEvent) =
-      discard
+      ui.processEvent(event)
 
     let
       now = getMonoTime()
@@ -98,32 +112,42 @@ proc preview() =
         lastLuafileMod = getLastModificationTime(luafile)
       reloadPollTimer = 0
 
-#     block transparencyGrid:
-#       ctx.begin()
-#       ctx.texture = bgTexture
-#       ctx.rect(0, 0, surface.width, surface.height,
-#                (0.0, 0.0, surface.width / 32, surface.height / 32))
-#       ctx.draw()
-#       ctx.noTexture()
     var frame = window.render()
-    frame.clearColor(rgba(0.1, 0.1, 0.1, 0.1))
+    frame.clearColor(colBlack)
+
+    backgroundRect.uploadRectangle(
+      uv = rectf(vec2f(0), frame.size.vec2f / background.size.vec2f))
+    frame.draw(directTextured, backgroundRect, uniforms {
+      sampler: background.sampler(minFilter = fmNearest, magFilter = fmNearest),
+    }, dpDefault)
 
     if se.errors.isNone:
       se.renderFrame()
+    else:
+      let errors = se.errors.get
+      var i = 0
+      for line in errors.splitLines:
+        let ln =
+          if i < 10: line
+          elif i == 10: "…"
+          else: ""
+        if i > 10: break
+        graphics.text(gSans, 9, 9 + i.float32 * 16, ln, color = colBlack)
+        graphics.text(gSans, 8, 8 + i.float32 * 16, ln, color = hex"#fc5558")
+        inc i
 
-    block showErrors:
-      if se.errors.isSome:
-        let errors = se.errors.get
-        var i = 0
-        for line in errors.splitLines:
-          let ln =
-            if i < 10: line
-            elif i == 10: "…"
-            else: ""
-          if i > 10: break
-          graphics.text(gSans, 9, 9 + i.float32 * 16, ln, color = colBlack)
-          graphics.text(gSans, 8, 8 + i.float32 * 16, ln, color = hex"#fc5558")
-          inc i
+    graphics.resetShape()
+
+    ui.begin(frame)
+    ui.font = gSans
+
+    ui.box ui.size, blVertical:
+      ui.animationView(animationView, ui.size - vec2f(0, Timeline.height))
+      ui.timelineBar(timeline)
+
+    ui.draw(frame)
+
+    frame.finish()
 
 proc renderAll() =
 

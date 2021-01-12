@@ -1,9 +1,11 @@
 import rapid/graphics
+import rapid/ui
 
 import api
 
-
-# global resources
+type
+  PanUi* = ref object of Ui
+    mouseOverBar*: bool
 
 var
   gSans*, gSansBold*: graphics.Font

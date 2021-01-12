@@ -260,10 +260,6 @@ proc init*(anim: Animation, width, height: int,
   anim.surface = cairo.imageSurfaceCreate(FormatArgb32, width.cint, height.cint)
   anim.cairo = cairo.create(anim.surface)
 
-  echo "init with: ", (width, height, length, framerate)
-  echo anim.surface.repr
-  echo anim.cairo.repr
-
   anim.length = length
   anim.framerate = framerate
   if anim.time > anim.length:
