@@ -23,13 +23,20 @@ type
     textureTime: float  # the time for which the texture was rendered
     texture: Texture2D[Rgba8]
 
+    zoomLevel: int
+    zoomLevelHudEndTime: float
+    panning: bool
+    pan: Vec2f  # haha, get it?
+
 proc initAnimationView*(ui: PanUi, anim: Animation): AnimationView =
   ## Creates and initializes a new animation view.
 
   result = AnimationView(
     anim: anim,
     textureTime: -1234,  # just some easily recognizable value in case of error
-    texture: ui.graphics.window.newTexture2D[:Rgba8]()
+    texture: ui.graphics.window.newTexture2D[:Rgba8](),
+    zoomLevel: Zoom100,
+    zoomLevelHudEndTime: -0.1,
   )
 
   # cairo operates on ARGB, but OpenGL wants RGBA, so we need to apply a
@@ -51,21 +58,70 @@ proc updateTexture*(av: var AnimationView) =
       av.texture.upload(size, data)
       av.textureTime = av.anim.time
 
+proc zoom*(av: AnimationView): float32 =
+  ## Returns the animation view's zoom level.
+  ZoomLevels[av.zoomLevel]
+
 proc animationView*(ui: PanUi, av: var AnimationView, size: Vec2f) =
   ## Draws an animation view and processes its events.
 
   av.updateTexture()
 
   ui.box size, blFreeform:
+
+    # rendering
+
     ui.drawInBox:
       let
         oldBatch = ui.graphics.currentBatch
         textureSize = av.texture.size.vec2f
-        rect = rectf(ui.size / 2 - textureSize / 2, av.texture.size.vec2f)
+        rect = rectf(vec2f(0, 0), textureSize)
 
       ui.graphics.batchNewSampler av.texture.sampler(
         minFilter = fmLinear,
         magFilter = fmNearest,
       )
-      ui.graphics.rawRectangle(rect)
+
+      ui.graphics.transform:
+        ui.graphics.translate(ui.size / 2)
+        ui.graphics.scale(av.zoom)
+        ui.graphics.translate(-textureSize / 2)
+        ui.graphics.translate(av.pan)
+        ui.graphics.rawRectangle(rect)
+
       ui.graphics.batchNewCopy(oldBatch)
+
+    # ok zoomer
+
+    let previousZoomLevel = av.zoomLevel
+
+    av.zoomLevel += ui.scroll.y.int
+    av.zoomLevel = av.zoomLevel.clamp(ZoomLevels.low, ZoomLevels.high)
+
+    ui.mousePressed mbRight:
+      av.zoomLevel = Zoom100
+      reset av.pan
+
+    if av.zoomLevel != previousZoomLevel:
+      av.zoomLevelHudEndTime = timeInSeconds() + 1.5
+
+    # ok panner
+
+    ui.mousePressed mbMiddle:
+      av.panning = true
+    if ui.mouseButtonJustReleased(mbMiddle):
+      av.panning = false
+
+    if av.panning:
+      av.pan += ui.deltaMousePosition / av.zoom
+
+    # zoom HUD
+
+    if timeInSeconds() < av.zoomLevelHudEndTime:
+      let zoomPercent = $int(av.zoom * 100) & '%'
+      ui.pad 8
+      ui.box vec2f(16 + ui.font.textWidth(zoomPercent), 24), blFreeform:
+        ui.align (apRight, apTop)
+        ui.fill hex"#0000007f"
+        ui.pad 8
+        ui.text(zoomPercent, colWhite, (apLeft, apMiddle))

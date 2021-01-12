@@ -2,7 +2,7 @@
 
 version       = "0.2.0"
 author        = "lqdev"
-description   = "PNG animation library, made for motion graphics."
+description   = "puny animator – create motion graphics using Lua"
 license       = "MIT"
 srcDir        = "src"
 bin           = @["pan/pan"]

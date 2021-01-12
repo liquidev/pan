@@ -1,3 +1,6 @@
+import std/monotimes
+import std/times
+
 import rapid/graphics
 import rapid/ui
 
@@ -10,3 +13,8 @@ type
 var
   gSans*, gSansBold*: graphics.Font
   gAnim*: Animation
+
+let gProcessStartTime = getMonoTime()
+
+proc timeInSeconds*(): float =
+  inMilliseconds(getMonoTime() - gProcessStartTime).float / 1_000
