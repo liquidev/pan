@@ -84,7 +84,7 @@ do
 
     local r, g, b, a = 0, 0, 0, 255
 
-    if #h == 3 and #h == 4 then
+    if #h == 3 or #h == 4 then
       r = tonumber(h:sub(1, 1), 16)
       g = tonumber(h:sub(2, 2), 16)
       b = tonumber(h:sub(3, 3), 16)
