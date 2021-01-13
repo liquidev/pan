@@ -123,7 +123,21 @@ proc preview() =
 
     if se.errors.isNone:
       se.renderFrame()
-    else:
+
+    graphics.resetShape()
+
+    ui.begin(frame)
+    ui.font = gSans
+
+    ui.box ui.size, blVertical:
+      ui.animationView(animationView, ui.size - vec2f(0, Timeline.height))
+      ui.timelineBar(timeline)
+
+    ui.draw(frame)
+
+    graphics.resetShape()
+
+    if se.errors.isSome:
       let errors = se.errors.get
       var i = 0
       for line in errors.splitLines:
@@ -136,16 +150,7 @@ proc preview() =
         graphics.text(gSans, 8, 8 + i.float32 * 16, ln, color = hex"#fc5558")
         inc i
 
-    graphics.resetShape()
-
-    ui.begin(frame)
-    ui.font = gSans
-
-    ui.box ui.size, blVertical:
-      ui.animationView(animationView, ui.size - vec2f(0, Timeline.height))
-      ui.timelineBar(timeline)
-
-    ui.draw(frame)
+    graphics.draw(frame)
 
     frame.finish()
 

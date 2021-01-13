@@ -45,10 +45,42 @@ LUA API:
   pan.hex(hexcode)
     parses a hex color value and creates a color with the given RGB components
 
+  Color
+  .r   the color's red component
+  .g   the color's green component
+  .b   the color's blue component
+  .a   the color's alpha component
+  :withRed(r)  :withGreen(g)  :withBlue(b)  :withAlpha(a)
+    utility functions that return a new color with a channel altered.
+    r, g, b, a must be values between 0..255
+  :mulAlpha(coeff)
+    utility function that returns a new color with the source color's alpha
+    channel multiplied by coeff. coeff must be a value between 0..1
+
+  -- IMAGES
+
+  pan.image.empty(width, height)
+  pan.image.load(path)
+    creates or loads a new image. the image can then be used as a paint or
+    drawing destination (see pan.switch)
+  pan.image.result
+    the render result image. this is the default output image.
+
+  Image
+  .width   the image's width
+  .height  the image's height
+  :size()
+    returns both the image's width and height in one go
+  :pixel(x, y, [color])
+    returns the pixel at the given coordinates. if color is provided, sets the
+    given pixel to the color.
+
   -- PAINTS
 
   pan.solid(color)
     creates a solid paint with the given color
+  pan.pattern(image)
+    creates a pattern paint with the given image
 
   Paint
   :lineWidth(x)
@@ -57,7 +89,38 @@ LUA API:
     sets a paint's line cap (lcButt|lcSquare|lcRound)
   :lineJoin(join)
     sets a paint's line join (ljBevel|ljMiter|ljRound)
+  :antialiasing(mode)
+    sets a paint's antialiasing mode.
+      aaDefault   backend-specific antialiasing (default)
+      aaNone      no antialiasing
+      aaGray      grayscale antialiasing
+  :blendMode(mode)
+    sets a paint's blend mode. available modes:
+      bmClear  bmSource  bmOver  bmIn  bmOut  bmAtop
+      bmDest  bmDestOver  bmDestIn  bmDestOut  bmDestAtop
+      bmXor  bmAdd  bmSaturate  bmMultiply  bmScreen  bmOverlay
+      bmDarken  bmLighten  bmColorDodge  bmColorBurn
+      bmHardLight  bmSoftLight
+      bmDifference  bmExclusion
+      bmHslHue  bmHslSaturation  bmHslColor  bmHslLuminosity
+    refer to https://cairographics.org/operators/ for details on what these do
 
+  the following methods only apply to image pattern paints, and don't affect
+  any other kind of paint.
+
+  :extend(mode)
+    sets the extension mode for pattern paints.
+      NoExtend   pixels outside of the pattern's bounds are fully transparent
+      Repeat     the pattern is tiled by repeating
+      Reflect    the pattern is tiles by reflecting at edges
+      Pad        pixels outside of the pattern copy the closest pixel from
+                 the image
+  :filter(mode)
+    sets the filtering mode for pattern paints.
+      Nearest   nearest neighbor filtering
+      Linear    bilinear filtering
+  :cutout(x, y, w, h)
+    sets the cutout rectangle for pattern paints.
 
   -- DRAWING
 
@@ -114,6 +177,20 @@ LUA API:
     and radius
   pan.cliprect(x, y, w, h)
     shortcut around calling begin(), rect(), and clip().
+
+  pan.blit(image, x, y, [w, h], [sx, sy, sw, sh])
+    shortcut for drawing a rectangle with an image paint.
+    x, y, w, h specify the destination rectangle.
+    if w, h are not provided, the image's size is used.
+    sx, sy, sw, sh specify the source rectangle.
+    if not specified, the entire image is used.
+  pan.switch([image])
+    if provided with an image, switches to the graphics context of the given
+    image. returns the previous image.
+    note that every image gets its own graphics context, which means that
+    properties like the path and transform are not preserved between calls
+    to this function.
+    the render result image can be accessed via pan.image.result.
 
   pan.font(name, [weight = fwNormal], [slant = fsNormal])
     loads a font by the given name, font slant (fsNone|fsItalic|fsOblique), and

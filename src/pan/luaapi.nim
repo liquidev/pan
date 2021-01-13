@@ -172,19 +172,36 @@ proc init*(se: var ScriptEngine, anim: Animation, scriptMain: string) =
     PanFontSlant
     PanTextHAlign
     PanTextVAlign
+    PanAntialiasing
+    PanBlendMode
+    PanExtend
+    PanFilter
 
   lua.bindObject(Color):
     initColor -> "_create"  # defer for rgba(), rgb(), gray()
-    r(get, set)
-    g(get, set)
-    b(get, set)
-    a(get, set)
+    r(get, set) -> "raw_r"
+    g(get, set) -> "raw_g"
+    b(get, set) -> "raw_b"
+    a(get, set) -> "raw_a"
+
+  lua.bindObject(Image):
+    newImage -> "_empty"  # defer for image.empty()
+    loadImage -> "_load"  # defer for image.load()
+    width(get)
+    height(get)
+    ~destroy
 
   lua.bindObject(Paint):
     solid -> "_createSolid"  # defer for solid()
+    pattern -> "_createPattern"  # defer for pattern()
     lineWidth
     lineCap
     lineJoin
+    antialiasing
+    blendMode
+    extend
+    withFilter -> "filter"
+    cutout
     ~destroy
 
   lua.bindObject(Font):
@@ -208,6 +225,7 @@ proc init*(se: var ScriptEngine, anim: Animation, scriptMain: string) =
     fill_l -> "fill"
     stroke_l -> "stroke"
     clip_l -> "clip"
+    switch_l -> "switch"
     textSize_l -> "_textSize"
     text_l -> "_text"
     addText_l -> "addText"

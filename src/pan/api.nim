@@ -1,13 +1,27 @@
 import std/macros
 import std/math
 
+import aglet/rect
 import cairo
+import glm/vec
+import stb_image/read as stbi
 
 type
+  Image* = ref object
+    width*, height*: int
+
+    surface*: ptr Surface
+    surfaceBorrowed: bool
+    pixelData: seq[uint8]
+
+    cairo*: ptr Context
+
   Animation* = ref object
     framerate*, length*: float
     time*: float
 
+    defaultImage*: Image
+    currentImage: Image
     cairo*: ptr Context
     surface*: ptr Surface
 
@@ -22,10 +36,57 @@ type
     lcButt
     lcSquare
     lcRound
+
   PanLineJoin* = enum
     ljMiter
     ljBevel
     ljRound
+
+  PanAntialiasing* = enum
+    aaDefault
+    aaNone
+    aaGray
+
+  PanBlendMode* = enum
+    bmClear
+    bmSource
+    bmOver
+    bmIn
+    bmOut
+    bmAtop
+    bmDest
+    bmDestOver
+    bmDestIn
+    bmDestOut
+    bmDestAtop
+    bmXor
+    bmAdd
+    bmSaturate
+    bmMultiply
+    bmScreen
+    bmOverlay
+    bmDarken
+    bmLighten
+    bmColorDodge
+    bmColorBurn
+    bmHardLight
+    bmSoftLight
+    bmDifference
+    bmExclusion
+    bmHslHue
+    bmHslSaturation
+    bmHslColor
+    bmHslLuminosity
+
+  PanExtend* = enum
+    NoExtend
+    Repeat
+    Reflect
+    Pad
+
+  PanFilter* = enum
+    Nearest
+    Linear
 
   PaintKind* = enum
     pkSolid
@@ -36,10 +97,16 @@ type
       color*: Color
     of pkPattern:
       patt*: ptr Pattern
+      image*: Image
+      extend*: Extend
+      filter*: Filter
+      cutout*: Rect[float]
 
     lineWidth*: float
     lineCap*: LineCap
     lineJoin*: LineJoin
+    antialiasing*: Antialias
+    blendMode*: Operator
 
   PanFontWeight* = enum
     fwNormal
@@ -62,21 +129,91 @@ type
     slant*: FontSlant
 
 
-
 # Color
 
 proc initColor*(r, g, b, a: float): Color =
   Color(r: r, g: g, b: b, a: a)
 
 
+# Image
+
+proc newImage*(width, height: int): Image =
+  result = Image(
+    width: width, height: height,
+    surface: imageSurfaceCreate(FormatArgb32, width.cint, height.cint),
+  )
+
+proc loadImage*(path: string): Image =
+
+  var
+    width, height, channels: int
+    img = stbi.load(path, width, height, channels, 4)
+
+  assert channels == 4,
+    "stb_image must always return an image with 4 channels, " &
+    "please report this on pan's GitHub"
+
+  {.push checks: off.}
+
+  # convert from RGBA to ARGB because cairo <3
+  for y in 0..<height:
+    for x in 0..<width:
+      let
+        r = channels * (x + y * width)
+        g = r + 1
+        b = g + 1
+        a = b + 1
+      (img[r], img[g], img[b], img[a]) =
+        when cpuEndian == bigEndian: (img[a], img[r], img[g], img[b])
+        else: (img[b], img[g], img[r], img[a])
+
+  {.pop.}
+
+  result = Image(
+    width: width, height: height,
+    pixelData: move img,
+  )
+  result.surface = imageSurfaceCreate(
+    data = cast[cstring](addr result.pixelData[0]),
+    format = FormatArgb32,
+    result.width.cint, result.height.cint,
+    stride = result.width.cint * 4,
+  )
+
+proc getCairo(image: Image): ptr Context =
+  if image.cairo.isNil:
+    image.cairo = cairo.create(image.surface)
+  result = image.cairo
+
+proc destroy*(image: Image) =
+  if not image.surfaceBorrowed: destroy(image.surface)
+  if not image.cairo.isNil: destroy(image.cairo)
+
+
 # Paint
 
+proc defaultSettings(p: var Paint) =
+  p.lineWidth = 1
+  p.lineCap = LineCapButt
+  p.lineJoin = LineJoinMiter
+  p.antialiasing = AntialiasDefault
+  p.blendMode = OperatorOver
+
 proc solid*(color: Color): Paint =
-  Paint(kind: pkSolid,
-        color: color,
-        lineWidth: 1,
-        lineCap: LineCapButt,
-        lineJoin: LineJoinMiter)
+  result = Paint(
+    kind: pkSolid,
+    color: color,
+  )
+  defaultSettings result
+
+proc pattern*(image: Image): Paint =
+  result = Paint(
+    kind: pkPattern,
+    patt: patternCreateForSurface(image.surface),
+    image: image,
+    cutout: rect(0.0, 0.0, image.width.float, image.height.float),
+  )
+  defaultSettings result
 
 proc lineWidth*(paint: Paint, newWidth: float): Paint =
   result = paint
@@ -98,6 +235,52 @@ proc lineJoin*(paint: Paint, newLineJoin: PanLineJoin): Paint =
     of ljBevel: LineJoinBevel
     of ljRound: LineJoinRound
 
+proc antialiasing*(paint: Paint, newAntialiasing: PanAntialiasing): Paint =
+  result = paint
+  result.antialiasing = newAntialiasing.Antialias
+
+proc blendMode*(paint: Paint, newBlendMode: PanBlendMode): Paint =
+  result = paint
+  result.blendMode = newBlendMode.Operator
+
+proc clone(paint: Paint): Paint =
+
+  # this must be used for all pattern paints in order to copy the pattern
+  # along with the paint. unfortunately cairo doesn't just have a clone
+  # method for patterns, so this mess is the result of that
+
+  assert paint.kind == pkPattern
+  result = paint
+
+  case paint.patt.getType
+  of PatternTypeSurface:
+    var surface: ptr Surface
+    discard paint.patt.getSurface(addr surface)
+    result.patt = patternCreateForSurface(surface)
+  else: assert false, "only image patterns are supported"
+
+proc extend*(paint: Paint, newExtend: PanExtend): Paint =
+  result = clone paint
+  if paint.kind == pkPattern:
+    result.extend = newExtend.Extend
+
+proc filter*(paint: Paint, newFilter: PanFilter): Paint =
+  result = clone paint
+  if paint.kind == pkPattern:
+    result.filter =
+      case newFilter
+      of Nearest: FilterNearest
+      of Linear: FilterBilinear
+
+proc withFilter*(paint: Paint, newFilter: PanFilter): Paint =
+  # alias for filter because nimLUA doesn't like it
+  result = filter(paint, newFilter)
+
+proc cutout*(paint: Paint, x, y, w, h: float): Paint =
+  result = clone paint
+  if paint.kind == pkPattern:
+    result.cutout = rect(paint.cutout.position + vec2(x, y), vec2(w, h))
+
 proc destroy*(paint: Paint) =
   if paint.kind == pkPattern:
     paint.patt.destroy()
@@ -110,9 +293,22 @@ proc usePaint(anim: Animation, paint: Paint) =
                              paint.color.a)
   else:
     anim.cairo.setSource(paint.patt)
+    paint.patt.setExtend(paint.extend)
+    paint.patt.setFilter(paint.filter)
+
+    var matrix: Matrix
+    initIdentity(addr matrix)
+    scale(addr matrix,
+          paint.cutout.width / paint.image.width.float,
+          paint.cutout.height / paint.image.height.float)
+    translate(addr matrix, paint.cutout.x, paint.cutout.y)
+    paint.patt.setMatrix(addr matrix)
+
   anim.cairo.setLineWidth(paint.lineWidth)
   anim.cairo.setLineCap(paint.lineCap)
   anim.cairo.setLineJoin(paint.lineJoin)
+  anim.cairo.setAntialias(paint.antialiasing)
+  anim.cairo.setOperator(paint.blendMode)
 
 
 # Font
@@ -199,6 +395,14 @@ proc stroke*(anim: Animation, paint: Paint) {.lua.} =
 proc clip*(anim: Animation) {.lua.} =
   anim.cairo.clipPreserve()
 
+proc switch*(anim: Animation): Image {.lua.} =
+  anim.currentImage
+
+proc switch*(anim: Animation, newImage: Image): Image {.lua.} =
+  result = anim.currentImage
+  anim.currentImage = newImage
+  anim.cairo = newImage.getCairo
+
 proc textSize*(anim: Animation, font: Font, text: string,
                size: float): tuple[w, h: float] =
   var
@@ -259,6 +463,12 @@ proc init*(anim: Animation, width, height: int,
 
   anim.surface = cairo.imageSurfaceCreate(FormatArgb32, width.cint, height.cint)
   anim.cairo = cairo.create(anim.surface)
+  anim.defaultImage = Image(
+    width: width, height: height,
+    surface: anim.surface,
+    cairo: anim.cairo,
+  )
+  anim.currentImage = anim.defaultImage
 
   anim.length = length
   anim.framerate = framerate
