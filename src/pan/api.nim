@@ -100,7 +100,7 @@ type
       image*: Image
       extend*: Extend
       filter*: Filter
-      cutout*: Rect[float]
+      pattMatrix*: Matrix
 
     lineWidth*: float
     lineCap*: LineCap
@@ -211,15 +211,15 @@ proc pattern*(image: Image): Paint =
     kind: pkPattern,
     patt: patternCreateForSurface(image.surface),
     image: image,
-    cutout: rect(0.0, 0.0, image.width.float, image.height.float),
   )
   defaultSettings result
+  initIdentity(addr result.pattMatrix)
 
-proc lineWidth*(paint: Paint, newWidth: float): Paint =
+proc withLineWidth*(paint: Paint, newWidth: float): Paint =
   result = paint
   result.lineWidth = newWidth
 
-proc lineCap*(paint: Paint, newLineCap: PanLineCap): Paint =
+proc withLineCap*(paint: Paint, newLineCap: PanLineCap): Paint =
   result = paint
   result.lineCap =
     case newLineCap
@@ -227,7 +227,7 @@ proc lineCap*(paint: Paint, newLineCap: PanLineCap): Paint =
     of lcSquare: LineCapSquare
     of lcRound: LineCapRound
 
-proc lineJoin*(paint: Paint, newLineJoin: PanLineJoin): Paint =
+proc withLineJoin*(paint: Paint, newLineJoin: PanLineJoin): Paint =
   result = paint
   result.lineJoin =
     case newLineJoin
@@ -235,11 +235,11 @@ proc lineJoin*(paint: Paint, newLineJoin: PanLineJoin): Paint =
     of ljBevel: LineJoinBevel
     of ljRound: LineJoinRound
 
-proc antialiasing*(paint: Paint, newAntialiasing: PanAntialiasing): Paint =
+proc withAntialiasing*(paint: Paint, newAntialiasing: PanAntialiasing): Paint =
   result = paint
   result.antialiasing = newAntialiasing.Antialias
 
-proc blendMode*(paint: Paint, newBlendMode: PanBlendMode): Paint =
+proc withBlendMode*(paint: Paint, newBlendMode: PanBlendMode): Paint =
   result = paint
   result.blendMode = newBlendMode.Operator
 
@@ -249,22 +249,22 @@ proc clone(paint: Paint): Paint =
   # along with the paint. unfortunately cairo doesn't just have a clone
   # method for patterns, so this mess is the result of that
 
-  assert paint.kind == pkPattern
   result = paint
 
-  case paint.patt.getType
-  of PatternTypeSurface:
-    var surface: ptr Surface
-    discard paint.patt.getSurface(addr surface)
-    result.patt = patternCreateForSurface(surface)
-  else: assert false, "only image patterns are supported"
+  if paint.kind == pkPattern:
+    case paint.patt.getType
+    of PatternTypeSurface:
+      var surface: ptr Surface
+      discard paint.patt.getSurface(addr surface)
+      result.patt = patternCreateForSurface(surface)
+    else: assert false, "only image patterns are supported"
 
-proc extend*(paint: Paint, newExtend: PanExtend): Paint =
+proc withExtend*(paint: Paint, newExtend: PanExtend): Paint =
   result = clone paint
   if paint.kind == pkPattern:
     result.extend = newExtend.Extend
 
-proc filter*(paint: Paint, newFilter: PanFilter): Paint =
+proc withFilter*(paint: Paint, newFilter: PanFilter): Paint =
   result = clone paint
   if paint.kind == pkPattern:
     result.filter =
@@ -272,14 +272,10 @@ proc filter*(paint: Paint, newFilter: PanFilter): Paint =
       of Nearest: FilterNearest
       of Linear: FilterBilinear
 
-proc withFilter*(paint: Paint, newFilter: PanFilter): Paint =
-  # alias for filter because nimLUA doesn't like it
-  result = filter(paint, newFilter)
-
-proc cutout*(paint: Paint, x, y, w, h: float): Paint =
+proc withMatrix*(paint: Paint, m: Matrix): Paint =
   result = clone paint
   if paint.kind == pkPattern:
-    result.cutout = rect(paint.cutout.position + vec2(x, y), vec2(w, h))
+    result.pattMatrix = m
 
 proc destroy*(paint: Paint) =
   if paint.kind == pkPattern:
@@ -295,14 +291,7 @@ proc usePaint(anim: Animation, paint: Paint) =
     anim.cairo.setSource(paint.patt)
     paint.patt.setExtend(paint.extend)
     paint.patt.setFilter(paint.filter)
-
-    var matrix: Matrix
-    initIdentity(addr matrix)
-    scale(addr matrix,
-          paint.cutout.width / paint.image.width.float,
-          paint.cutout.height / paint.image.height.float)
-    translate(addr matrix, paint.cutout.x, paint.cutout.y)
-    paint.patt.setMatrix(addr matrix)
+    paint.patt.setMatrix(paint.pattMatrix.unsafeAddr)
 
   anim.cairo.setLineWidth(paint.lineWidth)
   anim.cairo.setLineCap(paint.lineCap)
@@ -330,16 +319,24 @@ proc useFont(anim: Animation, font: Font) =
   anim.cairo.selectFontFace(font.family, font.slant, font.weight)
 
 
+# Matrix
+
+proc matrixInvert*(m: Matrix): tuple[m: Matrix, ok: bool] =
+  result.m = m
+  result.ok = invert(addr result.m) == StatusSuccess
+
+
 # Animation
 
 var cgLuaProcs* {.compiletime.}: seq[NimNode]
 
-macro lua(procedure: typed) =
+macro lua(procedure: typed): untyped =
   var procedure = procedure
   if procedure.kind == nnkSym:
     procedure = procedure.getImpl
 
   cgLuaProcs.add(procedure)
+  result = procedure
 
 proc clear*(anim: Animation, paint: Paint) {.lua.} =
   anim.usePaint(paint)
@@ -404,7 +401,7 @@ proc switch*(anim: Animation, newImage: Image): Image {.lua.} =
   anim.cairo = newImage.getCairo
 
 proc textSize*(anim: Animation, font: Font, text: string,
-               size: float): tuple[w, h: float] =
+               size: float): tuple[w, h: float] {.lua.} =
   var
     fextents: FontExtents
     textents: TextExtents
@@ -414,7 +411,7 @@ proc textSize*(anim: Animation, font: Font, text: string,
   anim.cairo.textExtents(text, addr textents)
   result.w = textents.width + textents.xBearing
   result.h = fextents.ascent
-lua textSize  # can't use {.lua.} here for some reason but whatever
+# lua textSize  # can't use {.lua.} here for some reason but whatever
 
 proc addText*(anim: Animation, font: Font, text: string, size: float) {.lua.} =
   anim.useFont(font)
@@ -446,6 +443,15 @@ proc scale*(anim: Animation, x, y: float) {.lua.} =
 
 proc rotate*(anim: Animation, z: float) {.lua.} =
   anim.cairo.rotate(z)
+
+export cairo.Matrix
+
+proc matrix*(anim: Animation): Matrix {.lua.} =
+  anim.cairo.getMatrix(addr result)
+
+proc matrix*(anim: Animation, newMatrix: Matrix): Matrix {.lua.} =
+  result = anim.matrix
+  anim.cairo.setMatrix(newMatrix.unsafeAddr)
 
 proc pathCursor*(anim: Animation): tuple[x, y: float] {.lua.} =
   anim.cairo.getCurrentPoint(result[0], result[1])

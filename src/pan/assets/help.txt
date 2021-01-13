@@ -178,14 +178,12 @@ LUA API:
   pan.cliprect(x, y, w, h)
     shortcut around calling begin(), rect(), and clip().
 
-  pan.blit(image, x, y, [w, h], [sx, sy, sw, sh], [paint])
+  pan.blit(image, x, y, [w, h], [{ filter= }])
     shortcut for drawing a rectangle with an image paint.
     x, y, w, h specify the destination rectangle.
     if w, h are not provided, the image's size is used.
-    sx, sy, sw, sh specify the source rectangle.
-    if not specified, the entire image is used.
-    if paint is provided, the given paint is used instead of creating a new one
-    with default settings. this can be used to override extend and filter modes.
+    if filter is provided, the given filtering mode is used when scaling the
+    image. if no filtering mode is provided, Nearest is used as a default.
   pan.switch([image])
     if provided with an image, switches to the graphics context of the given
     image. returns the previous image.
@@ -290,6 +288,7 @@ LUA API:
     tostring for all types except tables, where it returns the keys and values
     of the table.
   pan.require(modname)
-    override of the vanilla Lua `require` function with one that does not cache
-    loaded modules. This is very useful if your animation is made out of a few
-    smaller, reusable modules.
+    similar to vanilla Lua's `require` but does not cache loaded modules.
+    this is very useful if your animation is made out of a few smaller, reusable
+    modules, as vanilla `require` will load a module *once* and then keep
+    reusing it between hot reloads.

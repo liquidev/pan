@@ -194,18 +194,21 @@ proc init*(se: var ScriptEngine, anim: Animation, scriptMain: string) =
   lua.bindObject(Paint):
     solid -> "_createSolid"  # defer for solid()
     pattern -> "_createPattern"  # defer for pattern()
-    lineWidth
-    lineCap
-    lineJoin
-    antialiasing
-    blendMode
-    extend
+    withLineWidth -> "lineWidth"
+    withLineCap -> "lineCap"
+    withLineJoin -> "lineJoin"
+    withAntialiasing -> "antialiasing"
+    withBlendMode -> "blendMode"
+    withExtend -> "extend"
     withFilter -> "filter"
-    cutout
+    withMatrix -> "matrix"
     ~destroy
 
   lua.bindObject(Font):
     font -> "_create"  # defer for font()
+
+  lua.bindObject(Matrix):
+    matrixInvert -> "_invert"
 
   lua.bindProc("pan"):
     init_l -> "_init"
@@ -225,13 +228,14 @@ proc init*(se: var ScriptEngine, anim: Animation, scriptMain: string) =
     fill_l -> "fill"
     stroke_l -> "stroke"
     clip_l -> "clip"
-    switch_l -> "switch"
+    switch_l -> "_switch"
     textSize_l -> "_textSize"
     text_l -> "_text"
     addText_l -> "addText"
     translate_l -> "translate"
     scale_l -> "scale"
     rotate_l -> "rotate"
+    matrix_l -> "matrix"
     pathCursor_l -> "_pathCursor"
 
   se.state = lua

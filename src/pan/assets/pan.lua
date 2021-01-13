@@ -150,7 +150,7 @@ end
 pan.image = {
   empty = Image._empty,
   load = Image._load,
-  result = pan.switch(),
+  result = pan._switch(),
 }
 Image._empty = nil
 Image._load = nil
@@ -219,7 +219,7 @@ function pan.cliprect(x, y, w, h)
   pan.popPath()
 end
 
-function pan.blit(image, x, y, w, h, sx, sy, sw, sh, paint)
+function pan.blit(image, x, y, w, h, t)
   assert(type(image) == "userdata", "image must be provided")
   assert(type(x) == "number" and type(y) == "number")
 
@@ -229,26 +229,30 @@ function pan.blit(image, x, y, w, h, sx, sy, sw, sh, paint)
     w, h = image:size()
   end
 
-  if type(sx) == "number" then
-    assert(type(sy) == "number", "both source coordinates must be provided")
-    assert(type(sw) == "number" and type(sh) == "number",
-      "source width and height must be provided")
-    -- prevent division by zero
-    if sw == 0 then sw = 1 end
-    if sh == 0 then sh = 1 end
-  else
-    sx, sy = 0, 0
-    sw, sh = w, h
-  end
+  t = t or {}
 
-  paint = (paint or pan.pattern(image)) -- a bit inefficient wrt allocations
-    :cutout(-x, -y, image.width, image.height)
-    :cutout(sx, sy, sw, sh)
-  pan.pushPath()
-  pan.begin()
-  pan.rect(x, y, w, h)
-  pan.fill(paint)
-  pan.popPath()
+  pan.push()
+  pan.scale(w / image.width, h / image.height)
+  pan.translate(x, y)
+
+  pan.cliprect(x, y, w, h)
+  pan.clear(pan.pattern(image) -- a bit inefficient wrt allocations
+    :filter(t.filter or Nearest))
+
+  pan.pop()
+end
+
+local switchImpl = pan._switch
+pan._switch = nil
+function pan.switch(dest)
+  local result = switchImpl(dest)
+  if dest ~= nil then
+    rawset(pan, "width", dest.width)
+    rawset(pan, "height", dest.height)
+    width = dest.width
+    height = dest.height
+  end
+  return result
 end
 
 function pan.font(name, weight, slant)
@@ -300,6 +304,18 @@ end
 
 function pan.map(x, min0, max0, min1, max1)
   return min1 + ((x - min0) / (max0 - min0)) * (max1 - min1)
+end
+
+local matrixInvertImpl = Matrix._invert
+Matrix._invert = nil
+
+function Matrix.invert(self)
+  local r = matrixInvertImpl(self)
+  if r.ok then
+    return r.m
+  else
+    return nil
+  end
 end
 
 
