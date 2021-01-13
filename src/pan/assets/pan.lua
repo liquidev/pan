@@ -219,7 +219,7 @@ function pan.cliprect(x, y, w, h)
   pan.popPath()
 end
 
-function pan.blit(image, x, y, w, h, sx, sy, sw, sh)
+function pan.blit(image, x, y, w, h, sx, sy, sw, sh, paint)
   assert(type(image) == "userdata", "image must be provided")
   assert(type(x) == "number" and type(y) == "number")
 
@@ -233,12 +233,15 @@ function pan.blit(image, x, y, w, h, sx, sy, sw, sh)
     assert(type(sy) == "number", "both source coordinates must be provided")
     assert(type(sw) == "number" and type(sh) == "number",
       "source width and height must be provided")
+    -- prevent division by zero
+    if sw == 0 then sw = 1 end
+    if sh == 0 then sh = 1 end
   else
     sx, sy = 0, 0
     sw, sh = w, h
   end
 
-  local paint = pan.pattern(image) -- a bit inefficient wrt allocations
+  paint = (paint or pan.pattern(image)) -- a bit inefficient wrt allocations
     :cutout(-x, -y, image.width, image.height)
     :cutout(sx, sy, sw, sh)
   pan.pushPath()

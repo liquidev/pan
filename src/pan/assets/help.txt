@@ -178,12 +178,14 @@ LUA API:
   pan.cliprect(x, y, w, h)
     shortcut around calling begin(), rect(), and clip().
 
-  pan.blit(image, x, y, [w, h], [sx, sy, sw, sh])
+  pan.blit(image, x, y, [w, h], [sx, sy, sw, sh], [paint])
     shortcut for drawing a rectangle with an image paint.
     x, y, w, h specify the destination rectangle.
     if w, h are not provided, the image's size is used.
     sx, sy, sw, sh specify the source rectangle.
     if not specified, the entire image is used.
+    if paint is provided, the given paint is used instead of creating a new one
+    with default settings. this can be used to override extend and filter modes.
   pan.switch([image])
     if provided with an image, switches to the graphics context of the given
     image. returns the previous image.

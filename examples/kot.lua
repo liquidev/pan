@@ -12,10 +12,13 @@ function render()
   push()
   translate(width / 2, height / 2)
   translate(-w / 2, -h / 2)
-  blit(kot,
+  blit(
+    kot,
     x, y, w, h,
     10, 10,
     1 + (math.cos(time * math.pi) + 1) / 2 * kot.width,
-    1 + (math.sin(time * math.pi) + 1) / 2 * kot.height)
+    1 + (math.sin(time * math.pi) + 1) / 2 * kot.height,
+    pattern(kot):filter(Linear):extend(Repeat)
+  )
   pop()
 end
