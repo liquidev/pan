@@ -71,9 +71,6 @@ LUA API:
   .height  the image's height
   :size()
     returns both the image's width and height in one go
-  :pixel(x, y, [color])
-    returns the pixel at the given coordinates. if color is provided, sets the
-    given pixel to the color.
 
   -- PAINTS
 
