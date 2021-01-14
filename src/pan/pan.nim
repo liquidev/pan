@@ -16,6 +16,8 @@ import rapid/graphics/meshes
 import rapid/graphics/programs
 import rapid/graphics/vertex_types
 import rapid/ui
+import stb_image/write as stbiw
+import weave
 
 from api import Animation, step
 import animview
@@ -238,6 +240,30 @@ proc renderAll() =
     stderr.writeLine(x.join())
     stderr.flushFile()
 
+  proc writePngJob(filename: string, width, height: int,
+                   cdata: pointer): bool {.nimcall, thread.} =
+    var data = cast[ptr UncheckedArray[uint8]](cdata)
+
+    # shuffle ARGB → RGBA around
+    {.push checks: off, stacktrace: off.}
+    for y in 0..<height:
+      for x in 0..<width:
+        let
+          a = 4 * (x + y * width)
+          r = a + 1
+          g = r + 1
+          b = g + 1
+        (data[a], data[r], data[g], data[b]) =
+          when cpuEndian == bigEndian: (data[r], data[g], data[b], data[a])
+          else: (data[a], data[b], data[g], data[r])
+    {.pop.}
+
+    # save it
+    result = stbiw.writePng(filename, width, height, comp = 4,
+                            data.toOpenArray(0, 4 * width * height))
+
+    deallocShared(cdata)
+
   let
     (path, name, _) = luafile.splitFile
     outdir = path/name
@@ -265,24 +291,55 @@ proc renderAll() =
     frameCount = ceil(gAnim.length / frameTime).int
   log "total ", frameCount, " frames"
 
+  init Weave
+
+  var jobs: seq[FlowVar[bool]]
+  let
+    (width, height) = (gAnim.surface.getWidth, gAnim.surface.getHeight)
+    frameSize = 4 * width * height
   for i in 1..frameCount:
     let
       filename = addFileExt(outdir / $i, "png")
       percentage = i / frameCount * 100
+
     se.renderFrame()
     if se.errors.isSome:
       stderr.write('\n')
       stderr.writeLine(se.errors.get)
       quit(1)
-    let status = gAnim.surface.writeToPng(filename)
-    if status != StatusSuccess:
-      log "[in cairo] write to png failed: ", status
-      quit(-1)
-    stderr.write("\rrendering: ", $i, " / ", frameCount,
+
+    var data = allocShared(frameSize)
+    copyMem(data, gAnim.surface.getData, frameSize)
+    jobs.add(spawn writePngJob(filename, width, height, data))
+
+    gAnim.step(frameTime)
+
+    stderr.write("\rrendering: ", i, " / ", frameCount,
                  " (", formatFloat(percentage, precision = 3), "%)")
     stderr.flushFile()
-    gAnim.step(frameTime)
+
+    Weave.loadBalance()
   stderr.write('\n')
+
+  log "awaiting PNG write jobs"
+  var finishedCount = 0
+  while finishedCount < frameCount:
+    for fv in jobs.mitems:
+      if fv.isReady:
+        assert sync(fv), "writing PNG for frame " & $finishedCount & " failed"
+        inc finishedCount
+    sleep(100)
+
+    let percentage = finishedCount / frameCount * 100
+    stderr.write("\rprogress: ", finishedCount, " / ", frameCount,
+                 " (", formatFloat(percentage, precision = 3), "%)")
+    stderr.flushFile()
+
+    Weave.loadBalance()
+
+  stderr.write('\n')
+
+  exit Weave
 
   if ffmpegExport:
     log "exporting animation with FFmpeg"

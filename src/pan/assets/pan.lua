@@ -306,15 +306,13 @@ local function getSpaceWidth(font, size)
   end
 
   local width = spaceWidths[font][size]
-  if width then
-    return width
-  else
+  if not width then
     local spacew = rawTextSize(font, " w", size)
     local w = rawTextSize(font, 'w', size)
     width = spacew - w
     spaceWidths[font][size] = width
-    return width
   end
+  return width
 end
 
 function pan.textSize(font, text, size)
