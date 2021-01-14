@@ -1,187 +1,229 @@
-pan - PNG animator
-copyright (C) iLiquid, 2020
+#pan - puny animator
+copyright (C) lqdev, 2020-2021
+version __version, compiled on __compileDate
 
-pan is a tool for creating motion graphics using lua code.
+pan is a tool for creating motion graphics using Lua.
 
-USAGE:
-  pan <luafile> <action>
+#USAGE:
+  pan <luafile> [action] [options]
+  pan reference|r [options] [query]
 
-ACTIONS:
-  preview     display interactive preview of the animation.
+#LUAFILE ACTIONS:
+| preview     display an interactive preview of the animation.
               in this case, the framerate you set in the luafile does not
               matter! it will always be your monitor's refresh rate, for a
               pleasant playback experience. please note that with large
-              animations slowdowns may occur.
-  render      render animation to PNGs to a folder with the same name as the
+              animations with lots of code running slowdowns may occur.
+              this is the default action.
+| render      render animation to PNGs to a folder with the same name as the
               luafile. eg. for `anim.lua`, will render to `anim/{frame}.png`
+| reference   show or look up documentation for the Lua API
 
-LUAFILE:
+#RENDER OPTIONS:
+| -c --clear          clean output directory. this option is not enabled by
+                      default; instead, a warning that the output directory
+                      already exists is emitted and rendering is aborted.
+| -f --framerate:0    override the framerate set by the animation. a value of 0
+                      means no override
+| -x --export:format  export animation using FFmpeg, which must be installed
+                      and in your $PATH for this to work.
+                      available formats: gif, webmvp9, webp
+| --ffmpeg            pass all following parameters to ffmpeg
+
+#REFERENCE OPTIONS:
+| -p --pager:bin      use the provided pager binary. the pager is chosen using
+                      the following rules:
+                        1. if -p is provided, use that
+                        2. if $PAN_PAGER is set, use it
+                        3. if $PAGER is set, use it
+                        4. if $MAN_PAGER is set, use it
+                        5. if less is available, use it
+                        6. don't use a pager
+                      if a pager program is used, the -r parameter is passed
+                      to it to retain colored output. use -P to override this
+| -P --passPager:-r   pass the given parameters to the pager program. this can
+                      be overriden using the $PAN_PAGER_PARAMS environment var
+
+#REFERENCE QUERY:
+  if provided, the reference will be searched for the given phrase.
+  for example, `pan r width` will bring up the documentation for pan.width.
+  the pan namespace is added automatically to all queries without it.
+  type queries are also supported, so `pan r Color.r` will display documentation
+  for Color's .r field, and `Paint:lineWidth` will display docs for Paint's
+  :lineWidth method.
+  note that queries never use the pager program.
+
+#LUAFILE:
   the luafile is the main file for the animation. it must contain a function
   called `render` with no parameters.
-  at the beginning of your luafile, there must also be a call to frame(),
-  reference below.
+  at the beginning of your luafile, there must also be a call to pan.animation.
+  see `pan reference` for more details on available functions.
 
-LUA API:
+*****
+
+#GLOBALS
+
   all functions from the pan namespace are available as global variables by
   default. using the pan namespace should be preferred in library code, as the
   namespace is immutable, so the user can't possibly override pan methods. you
   can expect that they will always work.
 
-  -- PROJECT
+#PROJECT
 
-  pan.animation { width=, height=, length=, framerate = 60 }
+> pan.animation { width=, height=, length=, framerate = 60 }
     sets the animation up for rendering.
-  pan.width  pan.height
-    store the width and height provided in animation().
+> pan.width  pan.height
+    the width and height provided in animation(). these are overriden by
+    pan.switch() if it's used.
 
-  -- COLOR
+#COLOR
 
-  pan.gray(value, [alpha = 255])
+> pan.gray(value, [alpha = 255])
     creates a grayscale color with the RGB components set to the given `value`.
     if `alpha` is provided, the alpha channel of the color will be the specified
     value, otherwise it is 255
-  pan.rgb(red, green, blue)  pan.rgba(red, green, blue, alpha)
+> pan.rgb(red, green, blue)  pan.rgba(red, green, blue, alpha)
     creates an color with the given RGB[A] components
-  pan.hex(hexcode)
+> pan.hex(hexcode)
     parses a hex color value and creates a color with the given RGB components
 
-  Color
-  .r   the color's red component
-  .g   the color's green component
-  .b   the color's blue component
-  .a   the color's alpha component
-  :withRed(r)  :withGreen(g)  :withBlue(b)  :withAlpha(a)
+> Color  ::type
+| .r   the color's red component
+| .g   the color's green component
+| .b   the color's blue component
+| .a   the color's alpha component
+> :withRed(r)  :withGreen(g)  :withBlue(b)  :withAlpha(a)
     utility functions that return a new color with a channel altered.
     r, g, b, a must be values between 0..255
-  :mulAlpha(coeff)
+> :mulAlpha(coeff)
     utility function that returns a new color with the source color's alpha
     channel multiplied by coeff. coeff must be a value between 0..1
 
-  -- IMAGES
+#IMAGES
 
-  pan.image.empty(width, height)
-  pan.image.load(path)
+> pan.image.empty(width, height)
+> pan.image.load(path)
     creates or loads a new image. the image can then be used as a paint or
     drawing destination (see pan.switch)
-  pan.image.result
+> pan.image.result
     the render result image. this is the default output image.
 
-  Image
-  .width   the image's width
-  .height  the image's height
-  :size()
+> Image  ::type
+| .width   the image's width
+| .height  the image's height
+> :size()
     returns both the image's width and height in one go
 
-  -- PAINTS
+#PAINTS
 
-  pan.solid(color)
+> pan.solid(color)
     creates a solid paint with the given color
-  pan.pattern(image)
+> pan.pattern(image)
     creates a pattern paint with the given image
 
-  Paint
-  :lineWidth(x)
+> Paint  ::type
+> :lineWidth(x)
     sets a paint's line width
-  :lineCap(cap)
+> :lineCap(cap)
     sets a paint's line cap (lcButt|lcSquare|lcRound)
-  :lineJoin(join)
+> :lineJoin(join)
     sets a paint's line join (ljBevel|ljMiter|ljRound)
-  :antialiasing(mode)
+> :antialiasing(mode)
     sets a paint's antialiasing mode.
-      aaDefault   backend-specific antialiasing (default)
-      aaNone      no antialiasing
-      aaGray      grayscale antialiasing
-  :blendMode(mode)
+|     aaDefault   backend-specific antialiasing (default)
+|     aaNone      no antialiasing
+|     aaGray      grayscale antialiasing
+> :blendMode(mode)
     sets a paint's blend mode. available modes:
-      bmClear  bmSource  bmOver  bmIn  bmOut  bmAtop
-      bmDest  bmDestOver  bmDestIn  bmDestOut  bmDestAtop
-      bmXor  bmAdd  bmSaturate  bmMultiply  bmScreen  bmOverlay
-      bmDarken  bmLighten  bmColorDodge  bmColorBurn
-      bmHardLight  bmSoftLight
-      bmDifference  bmExclusion
-      bmHslHue  bmHslSaturation  bmHslColor  bmHslLuminosity
+;     bmClear  bmSource  bmOver  bmIn  bmOut  bmAtop
+;     bmDest  bmDestOver  bmDestIn  bmDestOut  bmDestAtop
+;     bmXor  bmAdd  bmSaturate  bmMultiply  bmScreen  bmOverlay
+;     bmDarken  bmLighten  bmColorDodge  bmColorBurn
+;     bmHardLight  bmSoftLight
+;     bmDifference  bmExclusion
+;     bmHslHue  bmHslSaturation  bmHslColor  bmHslLuminosity
     refer to https://cairographics.org/operators/ for details on what these do
 
   the following methods only apply to image pattern paints, and don't affect
   any other kind of paint.
 
-  :extend(mode)
+> :extend(mode)
     sets the extension mode for pattern paints.
-      NoExtend   pixels outside of the pattern's bounds are fully transparent
-      Repeat     the pattern is tiled by repeating
-      Reflect    the pattern is tiles by reflecting at edges
-      Pad        pixels outside of the pattern copy the closest pixel from
+|     NoExtend   pixels outside of the pattern's bounds are fully transparent
+|     Repeat     the pattern is tiled by repeating
+|     Reflect    the pattern is tiles by reflecting at edges
+|     Pad        pixels outside of the pattern copy the closest pixel from
                  the image
-  :filter(mode)
+> :filter(mode)
     sets the filtering mode for pattern paints.
-      Nearest   nearest neighbor filtering
-      Linear    bilinear filtering
-  :cutout(x, y, w, h)
+|     Nearest   nearest neighbor filtering
+|     Linear    bilinear filtering
+> :cutout(x, y, w, h)
     sets the cutout rectangle for pattern paints.
 
-  -- DRAWING
+#DRAWING
 
-  pan.clear(paint)
+> pan.clear(paint)
     clears the canvas with a paint.
-  pan.push()
+> pan.push()
     saves the current drawing parameters (transform, clip) onto a stack.
     this does not affect the current path. if you want to save/restore the path,
     use pushPath() and popPath().
-  pan.pop()
+> pan.pop()
     restores the parameters off of the stack.
-  pan.pushPath()
+> pan.pushPath()
     pushes the current path onto the path stack.
-  pan.popPath()
+> pan.popPath()
     pops the last path saved onto the path stack off of it and restores it.
 
-  pan.begin()
+> pan.begin()
     begins drawing a path. call this before any path drawing operation,
     otherwise remnants of old paths may still remain.
-  pan.moveTo(x, y)
+> pan.moveTo(x, y)
     moves to the given position for line placement.
-  pan.lineTo(x, y)
+> pan.lineTo(x, y)
     adds a line from the current position to the given position to the given
     path. moves the current position to (x, y)
-  pan.moveBy(dx, dy)
+> pan.moveBy(dx, dy)
     similar to moveTo(), but moves the cursor relative to its current position.
-  pan.relLineTo(dx, dy)
+> pan.relLineTo(dx, dy)
     similar to lineTo(), but moves the cursor relative to its current position.
-  pan.rect(x, y, w, h)
+> pan.rect(x, y, w, h)
     adds a rectangle to the current path.
-  pan.arc(x, y, r, astart, aend)
+> pan.arc(x, y, r, astart, aend)
     adds an arc to the current path.
-  pan.close()
+> pan.close()
     closes the existing path by creating a line from the current point to the
     starting point
-  pan.pathCursor()
+> pan.pathCursor()
     returns two values (x, y) containing the current path position (cursor).
-  pan.fill(paint)
+> pan.fill(paint)
     fills the path with the given paint.
-  pan.stroke(paint)
+> pan.stroke(paint)
     strokes the path with the given paint.
-  pan.clip()
+> pan.clip()
     clips the drawing area to the current path. any further drawing operations
     will be only visible inside that area. the clip area may only get smaller;
     the only way to enlarge it is by using push() and pop().
 
-  pan.line(x0, y0, x1, y1, paint)
+> pan.line(x0, y0, x1, y1, paint)
     shortcut for drawing a line using begin(), moveTo(), lineTo() and stroke()
-  pan.rects(x, y, w, h, paint)  pan.rectf(x, y, w, h, paint)
+> pan.rects(x, y, w, h, paint)  pan.rectf(x, y, w, h, paint)
     draws a stroked or filled rectangle at the given coordinates (top left),
     with the given size and paint
-  pan.circles(x, y, r, paint)  pan.circlef(x, y, r, paint)
+> pan.circles(x, y, r, paint)  pan.circlef(x, y, r, paint)
     similar to (stroke|fill)Rect, but draws a circle with the given center point
     and radius
-  pan.cliprect(x, y, w, h)
+> pan.cliprect(x, y, w, h)
     shortcut around calling begin(), rect(), and clip().
 
-  pan.blit(image, x, y, [w, h], [{ filter= }])
+> pan.blit(image, x, y, [w, h], [{ filter= }])
     shortcut for drawing a rectangle with an image paint.
     x, y, w, h specify the destination rectangle.
     if w, h are not provided, the image's size is used.
     if filter is provided, the given filtering mode is used when scaling the
     image. if no filtering mode is provided, Nearest is used as a default.
-  pan.switch([image])
+> pan.switch([image])
     if provided with an image, switches to the graphics context of the given
     image. returns the previous image.
     note that every image gets its own graphics context, which means that
@@ -189,10 +231,10 @@ LUA API:
     to this function.
     the render result image can be accessed via pan.image.result.
 
-  pan.font(name, [weight = fwNormal], [slant = fsNormal])
+> pan.font(name, [weight = fwNormal], [slant = fsNormal])
     loads a font by the given name, font slant (fsNone|fsItalic|fsOblique), and
     weight (fwNormal|fwBold).
-  pan.text(font, x, y, text, size,
+> pan.text(font, x, y, text, size,
            [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
     adds text to the path, using the given font, at the given coordinates,
     at the given font size. the [w, h, halign, valign] parameters
@@ -203,88 +245,88 @@ LUA API:
     after the text is rendered, the path position is set to where the next
     character should be placed for rendering with
     w = 0, h = 0, halign = taLeft, valign = taBottom.
-  pan.addText(font, text, size)
+> pan.addText(font, text, size)
     adds text to the path, but does not reposition the cursor initially.
     instead, the cursor has to be positioned using moveTo() or another text()
     call.
-  pan.textf(font, x, y, text, size, paint,
+> pan.textf(font, x, y, text, size, paint,
            [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
     draws filled text. see above
-  pan.texts(font, x, y, text, size, paint,
+> pan.texts(font, x, y, text, size, paint,
            [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
     draws stroked text. see above
-  pan.textSize(font, text, size)
+> pan.textSize(font, text, size)
     returns the width and height of the given text, at the given font size.
 
-  -- TRANSFORMS
+#TRANSFORMS
 
-  pan.translate(x, y)
+> pan.translate(x, y)
     translates the current view by (x, y) pixels.
-  pan.scale(x, y)
+> pan.scale(x, y)
     scales the current view by a factor of (x, y).
-  pan.rotate(z)
+> pan.rotate(z)
     rotates the current view by z radians.
 
-  -- MATH
+#MATH
 
-  pan.clamp(x, a, b)
+> pan.clamp(x, a, b)
     clamps the given value x between a and b.
-  pan.map(x, min0, max0, min1, max1)
+> pan.map(x, min0, max0, min1, max1)
     maps x from the range min0..max0 to min1..max1.
 
-  -- ANIMATION
+#ANIMATION
 
-  pan.time
+> pan.time
     stores the current frame's time, in seconds.
     only valid during render()
-  pan.warpTime(amount, callback)
+> pan.warpTime(amount, callback)
     subtracts the given amount from the time "perceived" in the given callback.
     this is the only way to change the value of pan.time without resorting to
     hacks. the purpose of this is to not make the user have to pass
     a time offset parameter around to functions.
-  pan.length
+> pan.length
     stores the animation's length in seconds
-  pan.framerate
+> pan.framerate
     stores the framerate
-  pan.interp(a, b, t, [func = linear])
+> pan.interp(a, b, t, [func = linear])
     interpolates between the two values a and b with the coefficient t (in the
     range 0..1) using the given easing function. if t is out of the given range,
     clamp() is used to limit it.
-  pan.ease(a, b, starttime, endtime, [func = linear])
+> pan.ease(a, b, starttime, endtime, [func = linear])
     eases a given value from a to b between starttime and endtime seconds in the
     animation using the given easing function (see below).
-  pan.easel(a, b, starttime, length, [func = linear])
+> pan.easel(a, b, starttime, length, [func = linear])
     similar to ease(), but uses a length instead of an ending time.
-  pan.keyframes {
-    { time=, val=, [easing = linear] },
-    ...
-  }
+> pan.keyframes {
+>   { time=, val=, [easing = linear] },
+>   ...
+> }
     animates a property using keyframes. this uses ease() internally, but allows
     for expressing sequential keyframe-based motion much more easily.
 
   easing functions
-  pan.linear(x) pan.step(x)
-  pan.
-    (sine|quad|cubic|quartic|quintic|expo|circ|back|elastic|bounce)
-    (In|Out|InOut)
+> pan.linear(x) pan.step(x)
+> pan.
+>   (sine|quad|cubic|quartic|quintic|expo|circ|back|elastic|bounce)
+>   (In|Out|InOut)
     each easing function accepts a single parameter and outputs a value between
     0 and 1 for interpolating another value. see interp() and ease()
     linear() is a noop, all it does is it returns its input value
-  pan.Easings.linear  pan.Easings.step
-  pan.Easings.In  pan.Easings.Out  pan.Easings.InOut
+> pan.Easings.linear  pan.Easings.step
+> pan.Easings.In  pan.Easings.Out  pan.Easings.InOut
     a global table that contains all the previously mentioned functions if you
     want to eg. iterate over them.
 
-  -- EXTRA
+#EXTRA
 
-  pan.len(x)
+> pan.len(x)
     returns the length of the given string or table. this is equivalent to #x
     for strings, but counts all the keys for tables. returns 0 for other types.
-  pan.repr(x)
+> pan.repr(x)
     returns the string representation of a value for debugging. This uses
     tostring for all types except tables, where it returns the keys and values
     of the table.
-  pan.require(modname)
+> pan.require(modname)
     similar to vanilla Lua's `require` but does not cache loaded modules.
     this is very useful if your animation is made out of a few smaller, reusable
     modules, as vanilla `require` will load a module *once* and then keep

@@ -17,6 +17,7 @@ import rapid/ui
 
 from api import Animation, step
 import animview
+import help
 import luaapi
 import res
 import timeline
@@ -28,24 +29,32 @@ type
   Mode = enum
     modePreview = "preview"
     modeRender = "render"
+    modeReference = " unreachable"
+                    # ↑ because parseopt strips whitespace off of values
 
 
 # cli
 
-const Help = slurp("assets/help.txt")
-
 var
   luafile = ""
   mode = modePreview
+  referenceQuery = ""
 
 for kind, key, val in getopt(commandLineParams()):
   if kind == cmdArgument:
-    if luafile.len == 0: luafile = key
-    else: mode = parseEnum[Mode](key)
+    if luafile.len == 0:
+      if key in ["r", "reference"]: mode = modeReference
+      else: luafile = key
+    else:
+      if mode == modeReference: referenceQuery = key
+      else: mode = parseEnum[Mode](key)
 
-if luafile.len == 0:
-  quit(Help, QuitSuccess)
-
+if mode == modeReference:
+  printReference()
+  quit 0
+elif luafile.len == 0:
+  printHelp()
+  quit 0
 
 # runtime
 
@@ -198,3 +207,4 @@ proc renderAll() =
 case mode
 of modePreview: preview()
 of modeRender: renderAll()
+else: assert false, "unreachable"

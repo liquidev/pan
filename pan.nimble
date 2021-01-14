@@ -1,6 +1,8 @@
 # Package
 
-version       = "0.2.0"
+import pan/version
+
+version       = panVersion
 author        = "lqdev"
 description   = "puny animator – create motion graphics using Lua"
 license       = "MIT"
