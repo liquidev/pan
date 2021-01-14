@@ -17,7 +17,9 @@ const
 
 var
   gHelpPager*: string
-  gHelpPagerArgs* = "-fR"
+  gHelpPagerArgs* =
+    if existsEnv("PAN_PAGER_PARAMS"): getEnv("PAN_PAGER_PARAMS")
+    else: "-fR"
 
 proc printFormattedHelp(outfile: File, text: string) =
 
