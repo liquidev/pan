@@ -11,7 +11,7 @@ type
     mouseOverBar*: bool
 
 var
-  gSans*, gSansBold*: graphics.Font
+  gSans*, gMono*: graphics.Font
   gAnim*: Animation
 
 let gProcessStartTime = getMonoTime()

@@ -135,7 +135,7 @@ proc preview() =
   const
     BackgroundPng = slurp("assets/background.png")
     OpenSansTtf = slurp("assets/fonts/OpenSans-Regular.ttf")
-    OpenSansBoldTtf = slurp("assets/fonts/OpenSans-Bold.ttf")
+    SourceCodeProTtf = slurp("assets/fonts/SourceCodePro-Medium.ttf")
 
   var aglet = initAglet()
   aglet.initWindow()
@@ -163,8 +163,7 @@ proc preview() =
 
   gSans = graphics.newFont(OpenSansTtf, 13)
   gSans.tabWidth = 24
-  gSansBold = graphics.newFont(OpenSansBoldTtf, 13)
-  gSansBold.tabWidth = 24
+  gMono = graphics.newFont(SourceCodeProTtf, 13)
 
   se.reload()
 

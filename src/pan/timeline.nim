@@ -142,25 +142,28 @@ proc timeline(ui: PanUi, timeline: var Timeline) =
 
   # time
   ui.box ui.size, blHorizontal:
-    ui.padH 8
+    ui.padH 12
+    ui.font = gMono
+    ui.fontHeight = 12
 
     let
-      time = formatFloat(timeline.anim.time, ffDecimal, 2)
-      len = "/  " & formatFloat(timeline.anim.length, ffDecimal, 1)
-      timeWidth = quantize(gSansBold.textWidth(time) + 16, 16)
-      lenWidth = gSans.textWidth(len) + 8
+      padding = formatFloat(timeline.anim.length, ffDecimal, 2).len
+      time = formatFloat(timeline.anim.time, ffDecimal, 2).align(padding)
+      len = " / " & formatFloat(timeline.anim.length, ffDecimal, 1)
+      timeWidth = quantize(ui.font.textWidth(time), 4) - 4
+        # ↑ this is to prevent it from jerkin' around because of
+        # textWidth imprecision
+      lenWidth = ui.font.textWidth(len) + 8
 
     # current
-    ui.box vec2f(timeWidth, ui.height), blFreeform:
-      ui.font = gSansBold
+    ui.box vec2f(timeWidth, ui.height + 1), blFreeform:
       ui.text(time, colWhite, (apLeft, apMiddle))
     # total
-    ui.box vec2f(lenWidth, ui.height), blFreeform:
-      ui.text(len, colWhite, (apLeft, apMiddle))
+    ui.box vec2f(lenWidth, ui.height + 1), blFreeform:
+      ui.text(len, colWhite.withAlpha(0.6), (apLeft, apMiddle))
 
     # time slider
     ui.box vec2f(ui.width - ui.x, ui.height), blFreeform:
-      ui.padH 8
       ui.slider(
         timeline.timeSlider, ui.size,
         value = timeline.anim.time,
