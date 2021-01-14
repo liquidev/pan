@@ -83,9 +83,14 @@ pan is a tool for creating motion graphics using Lua.
     if `alpha` is provided, the alpha channel of the color will be the specified
     value, otherwise it is 255
 > pan.rgb(red, green, blue)  pan.rgba(red, green, blue, alpha)
-    creates an color with the given RGB[A] components
+    creates a color with the given RGB[A] components
 > pan.hex(hexcode)
-    parses a hex color value and creates a color with the given RGB components
+    parses a hex color value and creates a color with the given RGB[A]
+    components. supported syntax:
+;     #RGB
+;     #RGBA
+;     #RRGGBB
+;     #RRGGBBAA
 
 > Color  ::type
 | .r   the color's red component
@@ -235,7 +240,7 @@ pan is a tool for creating motion graphics using Lua.
     loads a font by the given name, font slant (fsNone|fsItalic|fsOblique), and
     weight (fwNormal|fwBold).
 > pan.text(font, x, y, text, size,
-           [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
+>          [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
     adds text to the path, using the given font, at the given coordinates,
     at the given font size. the [w, h, halign, valign] parameters
     are used for alignment: the text will be aligned inside of a rect with the
@@ -250,10 +255,10 @@ pan is a tool for creating motion graphics using Lua.
     instead, the cursor has to be positioned using moveTo() or another text()
     call.
 > pan.textf(font, x, y, text, size, paint,
-           [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
+>          [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
     draws filled text. see above
 > pan.texts(font, x, y, text, size, paint,
-           [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
+>          [w = 0], [h = 0], [halign = taLeft], [valign = taTop])
     draws stroked text. see above
 > pan.textSize(font, text, size)
     returns the width and height of the given text, at the given font size.

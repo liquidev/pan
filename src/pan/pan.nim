@@ -38,19 +38,23 @@ type
 var
   luafile = ""
   mode = modePreview
-  referenceQuery = ""
+  referenceQueries: seq[string]
 
 for kind, key, val in getopt(commandLineParams()):
   if kind == cmdArgument:
-    if luafile.len == 0:
+    if luafile.len == 0 and mode != modeReference:
       if key in ["r", "reference"]: mode = modeReference
       else: luafile = key
     else:
-      if mode == modeReference: referenceQuery = key
+      if mode == modeReference: referenceQueries.add(key)
       else: mode = parseEnum[Mode](key)
 
 if mode == modeReference:
-  printReference()
+  if referenceQueries.len == 0:
+    printReference()
+  else:
+    if not stdout.queryReference(referenceQueries):
+      quit 1
   quit 0
 elif luafile.len == 0:
   printHelp()

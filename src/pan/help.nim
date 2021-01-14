@@ -69,7 +69,6 @@ proc pageFormattedHelp(text: string) =
 
   when defined(posix):
 
-
     let pagerName = getPager()
     if pagerName.len > 0:
       let
@@ -99,8 +98,124 @@ proc pageFormattedHelp(text: string) =
   else:
     stdout.printFormattedHelp text
 
+proc queryReferenceAux(file: File, phrase: string): bool =
+
+  const referenceLines = reference.splitLines
+
+  type
+    QueryKind = enum
+      InvalidQuery
+      Global
+      Field
+      Method
+
+  var
+    kind = InvalidQuery
+    left, right: string
+
+  if phrase.len == 0: return
+  if phrase.startsWith("pan."):
+    kind = Global
+  elif '.' in phrase:
+    let parts = phrase.split('.', maxsplit = 1)
+    kind = Field
+    (left, right) = (parts[0], parts[1])
+  elif ':' in phrase:
+    let parts = phrase.split(':', maxsplit = 1)
+    kind = Method
+    (left, right) = (parts[0], parts[1])
+  else:
+    kind = Global
+
+  if kind == InvalidQuery: return
+
+  let namespacedPhrase =
+    if phrase.startsWith("pan."): phrase
+    else: "pan." & phrase
+
+  var
+    findings: string
+    currentType, typeLine: string
+    startingLineIndent = -1
+    i = 0
+
+  while i < referenceLines.len:
+
+    let rawLine = referenceLines[i]
+
+    # remove directive noise
+    let
+      isSynopsis = rawLine.startsWith("> ")
+      isTable = rawLine.startsWith("| ")
+    var line = rawLine
+    line.removePrefix("> ")
+    line.removePrefix("| ")
+    line.removePrefix("; ")
+    let lineIndent = line.indentation
+    line = line.strip
+
+    # if we haven't found a matching doc yet
+    if startingLineIndent == -1:
+      # see if the line matches the phrase
+      case kind
+      of Global:
+        if isSynopsis and namespacedPhrase in rawLine:
+          startingLineIndent = lineIndent
+          findings.add(rawLine & '\n')
+      of Field:
+        if isTable and line.startsWith('.' & right):
+          findings.add(rawLine & '\n')
+      of Method:
+        if isSynopsis and currentType == left and line.startsWith(':' & right):
+          startingLineIndent = lineIndent
+          findings.add(rawLine & '\n')
+      else: doAssert false
+
+    # if we have a doc, then we add it to the findings
+    elif lineIndent > startingLineIndent:
+      findings.add(rawLine & '\n')
+    elif lineIndent <= startingLineIndent:
+      startingLineIndent = -1
+      continue
+
+    # check for the type marker
+    if line.endsWith(typeMarker):
+      line.removeSuffix(typeMarker)
+      currentType = line
+      if currentType == left:
+        typeLine = rawLine
+
+    inc i
+
+  stripLineEnd findings
+  if findings.len == 0: return
+  if typeLine.len > 0:
+    findings.insert(typeLine & '\n', 0)
+
+  file.printFormattedHelp findings
+  result = true
+
+proc queryReference*(file: File, phrases: seq[string]): bool =
+
+  result = true
+  var failedCount = 0
+
+  for i, phrase in phrases:
+    file.styledWriteLine fgGreen, "results for ",
+                         styleUnderscore, fgWhite, phrase, resetStyle, ":"
+    if not stdout.queryReferenceAux(phrase):
+      file.styledWriteLine fgYellow, "  no matches found."
+      inc failedCount
+      result = false
+    if i < phrases.high:
+      file.write('\n')
+
+  if failedCount > 0:
+    file.styledWriteLine $failedCount, fgYellow, " queries failed."
+
 proc printHelp*() =
   stdout.printFormattedHelp help
 
 proc printReference*() =
   pageFormattedHelp reference
+
