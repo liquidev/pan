@@ -8,7 +8,7 @@ pan is a tool for creating motion graphics using Lua.
   pan <luafile> [action] [options]
   pan reference|r [options] [query]
 
-#LUAFILE ACTIONS:
+#ACTIONS:
 | preview     display an interactive preview of the animation.
               in this case, the framerate you set in the luafile does not
               matter! it will always be your monitor's refresh rate, for a
@@ -17,31 +17,46 @@ pan is a tool for creating motion graphics using Lua.
               this is the default action.
 | render      render animation to PNGs to a folder with the same name as the
               luafile. eg. for `anim.lua`, will render to `anim/{frame}.png`
-| reference   show or look up documentation for the Lua API
+| reference   browse documentation for the Lua API
+
+#PREVIEW KEYBOARD SHORTCUTS:
+| Esc      close the preview
+| Space    play/pause
+| ←        previous frame
+| →        next frame
+| Shift ←  jump to start of animation
+| Shift →  jump to end of animation
 
 #RENDER OPTIONS:
-| -c --clear          clean output directory. this option is not enabled by
+| -c --clean          clean output directory. this option is not enabled by
                       default; instead, a warning that the output directory
                       already exists is emitted and rendering is aborted.
 | -f --framerate:0    override the framerate set by the animation. a value of 0
                       means no override
 | -x --export:format  export animation using FFmpeg, which must be installed
                       and in your $PATH for this to work.
-                      available formats: gif, webmvp9, webp
-| --ffmpeg            pass all following parameters to ffmpeg
+                      available formats: gif, webmVP9, webp
+| --ffmpeg            pass all following parameters to ffmpeg.
+                      the parameters `-r <framerate> -i <dir>/%d.png` are added
+                      to the beginning of the command, and literal `@@` in any
+                      of the provided parameters is replaced with the output
+                      filename *without* the extension.
 
 #REFERENCE OPTIONS:
-| -p --pager:bin      use the provided pager binary. the pager is chosen using
-                      the following rules:
-                        1. if -p is provided, use that
-                        2. if $PAN_PAGER is set, use it
-                        3. if $PAGER is set, use it
-                        4. if $MAN_PAGER is set, use it
-                        5. if less is available, use it
-                        6. don't use a pager
+| -p --pager:bin      use the provided pager binary. the pager is chosen from
+                      the following sources, with top-to-bottom priority:
+                        1. the --pager CLI parameter
+                        2. the $PAN_PAGER environment variable
+                        3. the $PAGER environment variable
+                        4. the $MAN_PAGER environment variable
+                        5. less
+                        6. no pager (direct output to stdout)
                       if a pager program is used, the -fR parameters are passed
-                      to it to retain colored output. use -P to override this
-| -P --passPager:-r   pass the given parameters to the pager program. this can
+                      to it to retain colored output. use -P to override this.
+                      the pager can be disabled simply by passing an empty
+                      string: `-p:`.
+                      pagination is currently unavailable on non-POSIX OSes.
+| -P --passPager:-fR  pass the given parameters to the pager program. this can
                       be overriden using the $PAN_PAGER_PARAMS environment var
 
 #REFERENCE QUERY:
@@ -50,8 +65,10 @@ pan is a tool for creating motion graphics using Lua.
   the pan namespace is added automatically to all queries without it.
   type queries are also supported, so `pan r Color.r` will display documentation
   for Color's .r field, and `Paint:lineWidth` will display docs for Paint's
-  :lineWidth method.
-  note that queries never use the pager program.
+  :lineWidth method. it is also possible to omit the field or method name, and
+  simply do eg. `Color.` or `Color:` - this will list all fields or methods for
+  a given type.
+  note that queries never use pagination.
 
 #LUAFILE:
   the luafile is the main file for the animation. it must contain a function
