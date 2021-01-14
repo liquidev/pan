@@ -10,12 +10,17 @@ import api
 import res
 
 type
+  Slider = object
+    sliding: bool
+
   Timeline* = object
     anim*: Animation
     playing*: bool
 
     playIcon, pauseIcon: Sprite
     jumpToStartIcon, jumpToEndIcon: Sprite
+
+    timeSlider: Slider
 
 proc initTimeline*(ui: Ui, anim: Animation): Timeline =
   ## Creates and initializes a new timeline for the given animation.
@@ -92,6 +97,47 @@ proc transport(ui: PanUi, timeline: var Timeline) =
   ui.button buttonSize, playPauseButtonIcon: timeline.playPause()
   ui.button buttonSize, timeline.jumpToEndIcon: timeline.jumpToEnd()
 
+const borderColor = hex"#ffffff20"
+
+proc slider(ui: PanUi, slider: var Slider, size: Vec2f,
+            value: var float, min, max: float) =
+
+  ui.box size, blFreeform:
+    ui.leftBorder borderColor
+    ui.rightBorder borderColor
+
+    ui.mousePressed mbLeft:
+      slider.sliding = true
+    if ui.mouseButtonJustReleased(mbLeft):
+      slider.sliding = false
+
+    let ctrl = ui.keyIsDown(keyLCtrl) or ui.keyIsDown(keyRCtrl)
+
+    if slider.sliding:
+      let t = clamp(ui.mousePosition.x / (ui.width - 2), 0.0, 1.0)
+      value = min + t * (max - min)
+      if ctrl:
+        value = quantize(value, 0.25)
+
+    ui.drawInBox:
+
+      # slits
+      let stepCount = int((max - min) * 4)
+      for step in 1..<stepCount:
+        let
+          x = ui.width / stepCount.float * step.float
+          size =
+            if step mod 4 == 0: 1/2
+            elif step mod 4 == 2: 1/3
+            else: 1/5
+          height = ui.height * size
+        ui.graphics.rectangle(x, ui.height - height, 1, height, borderColor)
+
+      # playhead
+      block:
+        let x = value / (max - min) * (ui.width - 2)
+        ui.graphics.rectangle(x, 0, 2, ui.height, colWhite)
+
 proc timeline(ui: PanUi, timeline: var Timeline) =
 
   # time
@@ -102,14 +148,24 @@ proc timeline(ui: PanUi, timeline: var Timeline) =
       time = formatFloat(timeline.anim.time, ffDecimal, 2)
       len = "/  " & formatFloat(timeline.anim.length, ffDecimal, 1)
       timeWidth = quantize(gSansBold.textWidth(time) + 16, 16)
+      lenWidth = gSans.textWidth(len) + 8
 
     # current
     ui.box vec2f(timeWidth, ui.height), blFreeform:
       ui.font = gSansBold
       ui.text(time, colWhite, (apLeft, apMiddle))
     # total
-    ui.box ui.size, blFreeform:
+    ui.box vec2f(lenWidth, ui.height), blFreeform:
       ui.text(len, colWhite, (apLeft, apMiddle))
+
+    # time slider
+    ui.box vec2f(ui.width - ui.x, ui.height), blFreeform:
+      ui.padH 8
+      ui.slider(
+        timeline.timeSlider, ui.size,
+        value = timeline.anim.time,
+        min = 0, max = timeline.anim.length,
+      )
 
 proc keyShortcuts(ui: PanUi, timeline: var Timeline) =
 
@@ -133,8 +189,6 @@ proc keyShortcuts(ui: PanUi, timeline: var Timeline) =
 
 proc timelineBar*(ui: PanUi, timeline: var Timeline) =
   ## Draws the timeline and processes its events.
-
-  const borderColor = hex"#ffffff20"
 
   ui.box vec2f(ui.width, Timeline.height), blHorizontal:
     ui.fill hex"#202020"
