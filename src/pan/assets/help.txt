@@ -39,7 +39,7 @@ pan is a tool for creating motion graphics using Lua.
                         4. if $MAN_PAGER is set, use it
                         5. if less is available, use it
                         6. don't use a pager
-                      if a pager program is used, the -r parameter is passed
+                      if a pager program is used, the -fR parameters are passed
                       to it to retain colored output. use -P to override this
 | -P --passPager:-r   pass the given parameters to the pager program. this can
                       be overriden using the $PAN_PAGER_PARAMS environment var
