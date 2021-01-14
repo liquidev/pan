@@ -1,10 +1,7 @@
 import aglet
 import cairo
 import rapid/graphics
-import rapid/graphics/meshes
-import rapid/graphics/vertex_types
 import rapid/ui
-
 import api
 import res
 

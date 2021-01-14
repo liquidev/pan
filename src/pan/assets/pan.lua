@@ -290,9 +290,47 @@ function pan.texts(font, x, y, text_, size, paint, w, h, halign, valign)
   pan.popPath()
 end
 
-function pan.textSize(font, text, size)
+local spaceWidths = setmetatable({}, { __mode = 'k' })
+
+local function rawTextSize(font, text, size)
   local s = implTextSize(font, text, size)
   return s.w, s.h
+end
+
+-- workaround for cairo not including trailing spaces in its text extents.
+-- i am aware that this is a bit imprecise because of kerning, but should be
+-- good enough for most basic purposes
+local function getSpaceWidth(font, size)
+  if not spaceWidths[font] then
+    spaceWidths[font] = {}
+  end
+
+  local width = spaceWidths[font][size]
+  if width then
+    return width
+  else
+    local spacew = rawTextSize(font, " w", size)
+    local w = rawTextSize(font, 'w', size)
+    width = spacew - w
+    spaceWidths[font][size] = width
+    return width
+  end
+end
+
+function pan.textSize(font, text, size)
+  if #text == 0 then return 0, 0 end
+
+  local w, h = rawTextSize(font, text, size)
+
+  -- lua please give us proper string indexing kthx
+  if text:sub(-1, -1) == ' ' then
+    local start, fin = text:find("%s+$")
+    local count = fin - start
+    local space = getSpaceWidth(font, size)
+    w = w + count * space
+  end
+
+  return w, h
 end
 
 
