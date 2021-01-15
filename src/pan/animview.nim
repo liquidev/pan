@@ -48,12 +48,12 @@ proc updateTexture*(av: var AnimationView) =
   ## Updates the displayed texture to the current animation frame.
 
   if av.anim.initialized:
-    if av.textureTime != av.anim.time:
-      let
-        size = vec2i(av.anim.surface.getWidth, av.anim.surface.getHeight)
-        data = cast[ptr Rgba8](av.anim.surface.getData)
-      av.texture.upload(size, data)
-      av.textureTime = av.anim.time
+    # if av.textureTime != av.anim.time:
+    let
+      size = vec2i(av.anim.surface.getWidth, av.anim.surface.getHeight)
+      data = cast[ptr Rgba8](av.anim.surface.getData)
+    av.texture.upload(size, data)
+    av.textureTime = av.anim.time
 
 proc zoom*(av: AnimationView): float32 =
   ## Returns the animation view's zoom level.

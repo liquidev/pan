@@ -205,7 +205,7 @@ proc init*(se: var ScriptEngine, anim: Animation, scriptMain: string) =
     ~destroy
 
   lua.bindObject(Font):
-    font -> "_create"  # defer for font()
+    newFont -> "_create"  # defer for font()
 
   lua.bindObject(Matrix):
     matrixInvert -> "_invert"

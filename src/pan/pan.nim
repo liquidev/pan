@@ -210,6 +210,9 @@ proc preview() =
       ui.animationView(animationView, ui.size - vec2f(0, Timeline.height))
       ui.timelineBar(timeline)
 
+    ui.keyPressed keyR:
+      se.reload()
+
     ui.keyPressed keyQ:
       quit 0
 

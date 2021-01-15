@@ -123,7 +123,7 @@ type
     taTop
     taMiddle
     taBottom
-  Font* = object
+  Font* = ref object
     family*: string
     weight*: FontWeight
     slant*: FontSlant
@@ -302,8 +302,9 @@ proc usePaint(anim: Animation, paint: Paint) =
 
 # Font
 
-proc font*(family: string, weight: PanFontWeight,
-           slant: PanFontSlant): Font =
+proc newFont*(family: string, weight: PanFontWeight,
+              slant: PanFontSlant): Font =
+
   result = Font(family: family)
   result.weight =
     case weight
@@ -314,6 +315,8 @@ proc font*(family: string, weight: PanFontWeight,
     of fsNone: FontSlantNormal
     of fsItalic: FontSlantItalic
     of fsOblique: FontSlantOblique
+
+  echo "created font ", result[]
 
 proc useFont(anim: Animation, font: Font) =
   anim.cairo.selectFontFace(font.family, font.slant, font.weight)
