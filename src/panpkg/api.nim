@@ -316,8 +316,6 @@ proc newFont*(family: string, weight: PanFontWeight,
     of fsItalic: FontSlantItalic
     of fsOblique: FontSlantOblique
 
-  echo "created font ", result[]
-
 proc useFont(anim: Animation, font: Font) =
   anim.cairo.selectFontFace(font.family, font.slant, font.weight)
 

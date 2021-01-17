@@ -221,7 +221,8 @@ end
 
 function pan.blit(image, x, y, w, h, t)
   assert(type(image) == "userdata", "image must be provided")
-  assert(type(x) == "number" and type(y) == "number")
+  assert(type(x) == "number" and type(y) == "number",
+    "blit position must be provided")
 
   if type(w) == "number" then
     assert(type(h) == "number", "both width and height must be provided")
@@ -232,10 +233,11 @@ function pan.blit(image, x, y, w, h, t)
   t = t or {}
 
   pan.push()
+  pan.cliprect(x, y, w, h)
+
   pan.scale(w / image.width, h / image.height)
   pan.translate(x, y)
 
-  pan.cliprect(x, y, w, h)
   pan.clear(pan.pattern(image) -- a bit inefficient wrt allocations
     :filter(t.filter or Nearest))
 
@@ -321,9 +323,9 @@ function pan.textSize(font, text, size)
   local w, h = rawTextSize(font, text, size)
 
   -- lua please give us proper string indexing kthx
-  if text:sub(-1, -1) == ' ' then
-    local start, fin = text:find("%s+$")
-    local count = fin - start
+  local start, fin = text:find("%s+$")
+  if start then
+    local count = fin - start + 1
     local space = getSpaceWidth(font, size)
     w = w + count * space
   end

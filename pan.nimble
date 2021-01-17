@@ -1,15 +1,12 @@
 # Package
 
-import pan/version
-
-version       = panVersion
+version       = "0.2.0"
 author        = "lqdev"
 description   = "puny animator – create motion graphics using Lua"
 license       = "MIT"
 srcDir        = "src"
-bin           = @["pan/pan"]
-
-
+bin           = @["pan"]
+installExt    = @["nim"]
 
 # Dependencies
 
@@ -18,4 +15,5 @@ requires "cairo >= 1.1.1"
 requires "rapid#head"
 requires "https://github.com/liquidev/nimLUA >= 0.3.8"
 requires "stbimage >= 2.5"
-requires "weave#master"
+requires "weave#5034793"  # mratsim please make a new release this makes me
+                          # uncomfortable

@@ -19,12 +19,12 @@ import rapid/ui
 import stb_image/write as stbiw
 import weave
 
-from api import Animation, step
-import animview
-import help
-import luaapi
-import res
-import timeline
+from panpkg/api import Animation, step
+import panpkg/animview
+import panpkg/help
+import panpkg/luaapi
+import panpkg/res
+import panpkg/timeline
 
 
 # types
@@ -135,9 +135,9 @@ se.init(gAnim, luafile)
 proc preview() =
 
   const
-    BackgroundPng = slurp("assets/background.png")
-    OpenSansTtf = slurp("assets/fonts/OpenSans-Regular.ttf")
-    SourceCodeProTtf = slurp("assets/fonts/SourceCodePro-Medium.ttf")
+    BackgroundPng = slurp("panpkg/assets/background.png")
+    OpenSansTtf = slurp("panpkg/assets/fonts/OpenSans-Regular.ttf")
+    SourceCodeProTtf = slurp("panpkg/assets/fonts/SourceCodePro-Medium.ttf")
 
   var aglet = initAglet()
   aglet.initWindow()
@@ -150,7 +150,7 @@ proc preview() =
     directTextured = window.programDirect(Vertex2dUv)
     dpDefault = defaultDrawParams()
 
-    background = window.newTexture2D(Rgba8, readPngImage(BackgroundPng))
+    background = window.newTexture2D(Rgba8, readImage(BackgroundPng))
     backgroundRect = window.newMesh[:Vertex2dUv](muStream, dpTriangles)
 
     ui = block:
@@ -237,35 +237,15 @@ proc preview() =
 
     frame.finish()
 
+{.experimental: "implicitDeref".}
+
 proc renderAll() =
 
   proc log(x: varargs[string, `$`]) =
     stderr.writeLine(x.join())
     stderr.flushFile()
 
-  proc writePngJob(filename: string, width, height: int,
-                   cdata: pointer): bool {.nimcall, thread.} =
-    var data = cast[ptr UncheckedArray[uint8]](cdata)
-
-    # shuffle ARGB → RGBA around
-    {.push checks: off, stacktrace: off.}
-    for y in 0..<height:
-      for x in 0..<width:
-        let
-          a = 4 * (x + y * width)
-          r = a + 1
-          g = r + 1
-          b = g + 1
-        (data[a], data[r], data[g], data[b]) =
-          when cpuEndian == bigEndian: (data[r], data[g], data[b], data[a])
-          else: (data[a], data[b], data[g], data[r])
-    {.pop.}
-
-    # save it
-    result = stbiw.writePng(filename, width, height, comp = 4,
-                            data.toOpenArray(0, 4 * width * height))
-
-    deallocShared(cdata)
+  # preparations
 
   let
     (path, name, _) = luafile.splitFile
@@ -294,55 +274,117 @@ proc renderAll() =
     frameCount = ceil(gAnim.length / frameTime).int
   log "total ", frameCount, " frames"
 
+  # exporting
+
+  type
+    Frame = object
+      busy: bool
+      job: FlowVar[bool]
+      data: ptr UncheckedArray[uint8]
+    FramePool = array[100, Frame]
+
   init Weave
 
-  var jobs: seq[FlowVar[bool]]
+  var
+    pool: FramePool
+    finishedJobs = createShared(Channel[int])
+
+  open finishedJobs
+
+  proc writePngJob(index: int, finishedJobs: ptr Channel[int],
+                   filename: string, width, height: int,
+                   cdata: pointer): bool {.nimcall, thread.} =
+    var data = cast[ptr UncheckedArray[uint8]](cdata)
+
+    # shuffle ARGB → RGBA around
+    {.push checks: off, stacktrace: off.}
+    for y in 0..<height:
+      for x in 0..<width:
+        let
+          b = 4 * (x + y * width)
+          g = b + 1
+          r = g + 1
+          a = r + 1
+        (data[b], data[g], data[r], data[a]) =
+          when cpuEndian == bigEndian: (data[a], data[b], data[g], data[r])
+          else: (data[r], data[g], data[b], data[a])
+    {.pop.}
+
+    # save it
+    result = stbiw.writePng(filename, width, height, comp = 4,
+                            data.toOpenArray(0, 4 * width * height))
+
+    finishedJobs.send(index)
+
+  proc syncJob(i: int) =
+    # checks if a finished job succeeded
+
+    assert sync(pool[i].job),
+      "PNG write job " & $i & " failed"
+
   let
     (width, height) = (gAnim.surface.getWidth, gAnim.surface.getHeight)
     frameSize = 4 * width * height
-  for i in 1..frameCount:
-    let
-      filename = addFileExt(outdir / $i, "png")
-      percentage = i / frameCount * 100
 
-    se.renderFrame()
-    if se.errors.isSome:
-      stderr.write('\n')
-      stderr.writeLine(se.errors.get)
-      quit(1)
+  proc reserveFrameFromPool(): tuple[i: int, data: ptr UncheckedArray[uint8]] =
+    # gets a frame from the pool and returns its index and data pointer.
+    # marks the frame as busy.
 
-    var data = allocShared(frameSize)
-    copyMem(data, gAnim.surface.getData, frameSize)
-    jobs.add(spawn writePngJob(filename, width, height, data))
+    for i in 0..<pool.len:
+      if not pool[i].busy:
+        pool[i].busy = true
+        if pool[i].data.isNil:
+          pool[i].data =
+            cast[ptr UncheckedArray[uint8]](allocShared0(frameSize))
+        return (i, pool[i].data)
+    result.i = finishedJobs.recv()
+    syncJob result.i
+    result.data = pool[result.i].data
 
-    gAnim.step(frameTime)
+  proc cleanupPool() =
+    # cleans up the pool by marking all free frames as non-busy
 
-    stderr.write("\rrendering: ", i, " / ", frameCount,
-                 " (", formatFloat(percentage, precision = 3), "%)")
-    stderr.flushFile()
+    while true:
+      let (ok, job) = finishedJobs.tryRecv()
+      if not ok: break
+      syncJob job
+      pool[job].busy = false
 
-    Weave.loadBalance()
-  stderr.write('\n')
+  syncScope:
+    for i in 1..frameCount:
+      let
+        filename = addFileExt(outdir / $i, "png")
+        percentage = i / frameCount * 100
 
-  log "awaiting PNG write jobs"
-  var finishedCount = 0
-  while finishedCount < frameCount:
-    for fv in jobs.mitems:
-      if fv.isReady:
-        assert sync(fv), "writing PNG for frame " & $finishedCount & " failed"
-        inc finishedCount
-    sleep(100)
+      se.renderFrame()
+      if se.errors.isSome:
+        stderr.write('\n')
+        stderr.writeLine(se.errors.get)
+        quit(1)
 
-    let percentage = finishedCount / frameCount * 100
-    stderr.write("\rprogress: ", finishedCount, " / ", frameCount,
-                 " (", formatFloat(percentage, precision = 3), "%)")
-    stderr.flushFile()
+      var (job, data) = reserveFrameFromPool()
+      copyMem(data, gAnim.surface.getData, frameSize)
+      pool[job].job = spawn writePngJob(job, finishedJobs,
+                                        filename, width, height, data)
 
-    Weave.loadBalance()
+      gAnim.step(frameTime)
 
-  stderr.write('\n')
+      stderr.write("\rrendering: ", i, " / ", frameCount,
+                   " (", formatFloat(percentage, precision = 3), "%)")
+      stderr.flushFile()
+
+      Weave.loadBalance()
+      cleanupPool()
+    stderr.write('\n')
+
+    log "waiting for remaining export jobs to complete…"
+
+  close finishedJobs
+  deallocShared finishedJobs
 
   exit Weave
+
+  # encoding
 
   if ffmpegExport:
     log "exporting animation with FFmpeg"

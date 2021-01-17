@@ -36,10 +36,10 @@ proc initTimeline*(ui: Ui, anim: Animation): Timeline =
     anim: anim,
     playing: false,
 
-    playIcon: ui.graphics.addSprite(readPngImage(playIconPng)),
-    pauseIcon: ui.graphics.addSprite(readPngImage(pauseIconPng)),
-    jumpToStartIcon: ui.graphics.addSprite(readPngImage(jumpToStartIconPng)),
-    jumpToEndIcon: ui.graphics.addSprite(readPngImage(jumpToEndIconPng)),
+    playIcon: ui.graphics.addSprite(readImage(playIconPng)),
+    pauseIcon: ui.graphics.addSprite(readImage(pauseIconPng)),
+    jumpToStartIcon: ui.graphics.addSprite(readImage(jumpToStartIconPng)),
+    jumpToEndIcon: ui.graphics.addSprite(readImage(jumpToEndIconPng)),
   )
 
 proc tick*(timeline: var Timeline, seconds: float32) =
@@ -175,9 +175,22 @@ proc keyShortcuts(ui: PanUi, timeline: var Timeline) =
   if ui.keyJustPressed(keySpace):
     timeline.playPause()
 
-  let shift = ui.keyIsDown(keyLShift) or ui.keyIsDown(keyRShift)
+  let
+    shift = ui.keyIsDown(keyLShift) or ui.keyIsDown(keyRShift)
+    ctrl = ui.keyIsDown(keyLCtrl) or ui.keyIsDown(keyRCtrl)
 
   if shift:
+    var changed = false
+    if ui.keyJustTyped(keyLeft):
+      timeline.anim.step(-0.25)
+      changed = true
+    if ui.keyJustTyped(keyRight):
+      timeline.anim.step(0.25)
+      changed = true
+    if changed:
+      timeline.anim.time = quantize(timeline.anim.time, 0.25)
+
+  elif ctrl:
     if ui.keyJustPressed(keyLeft):
       timeline.jumpToStart()
     if ui.keyJustPressed(keyRight):

@@ -20,12 +20,15 @@ pan is a tool for creating motion graphics using Lua.
 | reference   browse documentation for the Lua API
 
 #PREVIEW KEYBOARD SHORTCUTS:
-| Esc      close the preview
+| Q        close the preview
+| R        reload animation
 | Space    play/pause
 | ←        previous frame
 | →        next frame
-| Shift ←  jump to start of animation
-| Shift →  jump to end of animation
+| Shift ←  0.25s back
+| Shift →  0.25s forward
+| Ctrl ←   jump to start of animation
+| Ctrl →   jump to end of animation
 
 #RENDER OPTIONS:
 | -c --clean          clean output directory. this option is not enabled by

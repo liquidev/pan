@@ -1,4 +1,4 @@
-# executable that's likely produced by `nimble install`
-pan/pan
+# executable that's produced by `nimble install`
+pan.out
 
 .lite_project.lua
