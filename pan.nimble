@@ -12,7 +12,7 @@ installExt    = @["nim"]
 
 requires "nim >= 1.4.2"
 requires "cairo >= 1.1.1"
-requires "rapid#head"
+requires "rapid#21c847e"
 requires "https://github.com/liquidev/nimLUA >= 0.3.8"
 requires "stbimage >= 2.5"
 requires "weave#5034793"  # mratsim please make a new release this makes me
