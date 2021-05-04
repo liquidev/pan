@@ -215,34 +215,6 @@ proc pattern*(image: Image): Paint =
   defaultSettings result
   initIdentity(addr result.pattMatrix)
 
-proc withLineWidth*(paint: Paint, newWidth: float): Paint =
-  result = paint
-  result.lineWidth = newWidth
-
-proc withLineCap*(paint: Paint, newLineCap: PanLineCap): Paint =
-  result = paint
-  result.lineCap =
-    case newLineCap
-    of lcButt: LineCapButt
-    of lcSquare: LineCapSquare
-    of lcRound: LineCapRound
-
-proc withLineJoin*(paint: Paint, newLineJoin: PanLineJoin): Paint =
-  result = paint
-  result.lineJoin =
-    case newLineJoin
-    of ljMiter: LineJoinMiter
-    of ljBevel: LineJoinBevel
-    of ljRound: LineJoinRound
-
-proc withAntialiasing*(paint: Paint, newAntialiasing: PanAntialiasing): Paint =
-  result = paint
-  result.antialiasing = newAntialiasing.Antialias
-
-proc withBlendMode*(paint: Paint, newBlendMode: PanBlendMode): Paint =
-  result = paint
-  result.blendMode = newBlendMode.Operator
-
 proc clone(paint: Paint): Paint =
 
   # this must be used for all pattern paints in order to copy the pattern
@@ -259,10 +231,77 @@ proc clone(paint: Paint): Paint =
       result.patt = patternCreateForSurface(surface)
     else: assert false, "only image patterns are supported"
 
+proc withLineWidth*(paint: Paint, newWidth: float): Paint =
+  result = clone paint
+  result.lineWidth = newWidth
+
+proc withLineCap*(paint: Paint, newLineCap: PanLineCap): Paint =
+  result = clone paint
+  result.lineCap =
+    case newLineCap
+    of lcButt: LineCapButt
+    of lcSquare: LineCapSquare
+    of lcRound: LineCapRound
+
+proc withLineJoin*(paint: Paint, newLineJoin: PanLineJoin): Paint =
+  result = clone paint
+  result.lineJoin =
+    case newLineJoin
+    of ljMiter: LineJoinMiter
+    of ljBevel: LineJoinBevel
+    of ljRound: LineJoinRound
+
+proc withAntialiasing*(paint: Paint, newAntialiasing: PanAntialiasing): Paint =
+  result = clone paint
+  result.antialiasing =
+    case newAntialiasing
+    of aaDefault: AntialiasDefault
+    of aaNone: AntialiasNone
+    of aaGray: AntialiasGray
+
+proc withBlendMode*(paint: Paint, newBlendMode: PanBlendMode): Paint =
+  result = clone paint
+  result.blendMode =
+    case newBlendMode
+    of bmClear: OperatorClear
+    of bmSource: OperatorSource
+    of bmOver: OperatorOver
+    of bmIn: OperatorIn
+    of bmOut: OperatorOut
+    of bmAtop: OperatorAtop
+    of bmDest: OperatorDest
+    of bmDestOver: OperatorDestOver
+    of bmDestIn: OperatorDestIn
+    of bmDestOut: OperatorDestOut
+    of bmDestAtop: OperatorDestAtop
+    of bmXor: OperatorXor
+    of bmAdd: OperatorAdd
+    of bmSaturate: OperatorSaturate
+    of bmMultiply: OperatorMultiply
+    of bmScreen: OperatorScreen
+    of bmOverlay: OperatorOverlay
+    of bmDarken: OperatorDarken
+    of bmLighten: OperatorLighten
+    of bmColorDodge: OperatorColorDodge
+    of bmColorBurn: OperatorColorBurn
+    of bmHardLight: OperatorHardLight
+    of bmSoftLight: OperatorSoftLight
+    of bmDifference: OperatorDifference
+    of bmExclusion: OperatorExclusion
+    of bmHslHue: OperatorHslHue
+    of bmHslSaturation: OperatorHslSaturation
+    of bmHslColor: OperatorHslColor
+    of bmHslLuminosity: OperatorHslLuminosity
+
 proc withExtend*(paint: Paint, newExtend: PanExtend): Paint =
   result = clone paint
   if paint.kind == pkPattern:
-    result.extend = newExtend.Extend
+    result.extend =
+      case newExtend
+      of NoExtend: ExtendNone
+      of Repeat: ExtendRepeat
+      of Reflect: ExtendReflect
+      of Pad: ExtendPad
 
 proc withFilter*(paint: Paint, newFilter: PanFilter): Paint =
   result = clone paint

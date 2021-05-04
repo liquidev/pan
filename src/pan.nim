@@ -319,7 +319,7 @@ proc renderAll() =
   proc syncJob(i: int) =
     # checks if a finished job succeeded
 
-    assert sync(pool[i].job),
+    doAssert sync(pool[i].job),
       "PNG write job " & $i & " failed"
 
   let
