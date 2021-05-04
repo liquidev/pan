@@ -23,16 +23,18 @@ Simply run `pan | less` and read away!
 ## Installation
 
 ```
-git clone https://github.com/liquid600pgm/pan
-cd pan
-nimble install
+nimble install https://github.com/liquidev/pan
 ```
 
 ## Usage
 
 ```bash
-# display help text + API reference:
-pan | less
+# display help text:
+pan
+# display API reference:
+pan r
+# look up reference for rect:
+pan r rect
 
 # show preview window:
 pan file.lua
@@ -58,10 +60,10 @@ Here's an example of a short luafile you can preview with `pan <file>`:
 ```lua
 animation { width = 400, height = 400, length = 3.0, framerate = 25 }
 
-background = solid(hex"#20d4ac")
-white = solid(gray(255))
+local background = solid(hex"#20d4ac")
+local white = solid(gray(255))
 
-Size = 128
+local size = 128
 
 function render()
   clear(background)
@@ -76,7 +78,7 @@ function render()
   }, 0)
   rotate(ease(0, math.pi, 0.0, 1.5, quinticInOut))
 
-  rectf(-Size / 2, -Size / 2, Size, Size, white)
+  rectf(-size / 2, -size / 2, size, size, white)
 
   pop()
 end
