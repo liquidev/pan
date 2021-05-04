@@ -7,17 +7,22 @@ The commonly used motion graphics software out there sucks. Adobe After Effects
 is slow and bulky, and Blender isn't geared very well for motion graphics. Both
 need plugins to make creating nice, satisfying, sequential animations fast and
 efficient. Why do we have to stick with software that clearly isn't made for
-this purpose, when we can create better alternatives?
+this purpose, when we can create a better alternative?
 
-pan is the answer to this: using a simple, but powerful API, embracing the
-simplicity of Lua as a scripting language, and providing hot reloading to make
-small edits fast and easy to do, it makes the creation of 2D motion graphics a
-breeze. Its render times are really fast, and the preview can run your animation
-in full 60 fps—even when your animation is to be exported in a lower framerate.
+Many people already use [Processing](https://processing.org) for this purpose,
+but the lack of an interactive preview with a timeline can be a bit frustrating.
+It's a much more general purpose tool, and while it is fully possible to create
+animations with it, the experience could be a bit better.
+
+Enter pan: using a simple, but powerful API, embracing the simplicity of Lua as
+a scripting language, and providing hot reloading to make small edits fast and
+easy to do, it makes the creation of 2D motion graphics a breeze. Its render
+times are really fast, and the preview can run your animation in full
+60 fps—even when your animation is to be exported in a lower framerate.
 The preview is capable of running even on low-end hardware, thanks to OpenGL
 hardware acceleration.
 Apart from that, pan's API is simple to learn and use. You don't even have to go
-online for a reference: it's built in to the program, right after the help text.
+online for a reference: it's built right in to the program.
 Simply run `pan r` and read away!
 
 ## Installation
