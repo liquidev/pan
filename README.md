@@ -18,7 +18,7 @@ The preview is capable of running even on low-end hardware, thanks to OpenGL
 hardware acceleration.
 Apart from that, pan's API is simple to learn and use. You don't even have to go
 online for a reference: it's built in to the program, right after the help text.
-Simply run `pan | less` and read away!
+Simply run `pan r` and read away!
 
 ## Installation
 
@@ -43,16 +43,26 @@ pan file.lua preview
 
 # render your animation to a directory next to the luafile:
 pan file.lua render
+# maybe to a gif, animated webp, or video file (FFmpeg required):
+pan file.lua render -x:gif
+pan file.lua render -x:webp
+pan file.lua render -x:webmVP9
 ```
 
 ### Preview controls
 
 - Middle mouse button – pan view
 - Scroll wheel – zoom in/out
-- Right mouse button – reset scroll and zoom
+- Right mouse button – reset zoom
+- <kbd>Q</kbd> – quit preview
+- <kbd>R</kbd> – reload animation
 - <kbd>Space</kbd> – play/pause
-- <kbd>←</kbd>, <kbd>→</kbd> – step one frame backwards/forwards
-- <kbd>← Backspace</kbd> – return to beginning of animation
+- <kbd>←</kbd> – previous frame
+- <kbd>→</kbd> – next frame
+- <kbd>Shift</kbd> <kbd>←</kbd> – 0.25s back
+- <kbd>Shift</kbd> <kbd>→</kbd> – 0.25s forward
+- <kbd>Ctrl</kbd> <kbd>←</kbd> – jump to start of animation
+- <kbd>Ctrl</kbd> <kbd>→</kbd> – jump to end of animation
 
 ## Example
 
