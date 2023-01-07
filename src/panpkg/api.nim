@@ -1,5 +1,7 @@
 import std/macros
 import std/math
+import std/os as os
+import std/unicode as unicode
 
 import aglet/rect
 import cairo
@@ -143,6 +145,8 @@ proc newImage*(width, height: int): Image =
     surface: imageSurfaceCreate(FormatArgb32, width.cint, height.cint),
   )
 
+proc rgbaToArgb(img: var seq[byte], width, height, channels: int, premultiply: bool)
+
 proc loadImage*(path: string): Image =
 
   var
@@ -153,21 +157,13 @@ proc loadImage*(path: string): Image =
     "stb_image must always return an image with 4 channels, " &
     "please report this on pan's GitHub"
 
-  {.push checks: off.}
-
   # convert from RGBA to ARGB because cairo <3
-  for y in 0..<height:
-    for x in 0..<width:
-      let
-        r = channels * (x + y * width)
-        g = r + 1
-        b = g + 1
-        a = b + 1
-      (img[r], img[g], img[b], img[a]) =
-        when cpuEndian == bigEndian: (img[a], img[r], img[g], img[b])
-        else: (img[b], img[g], img[r], img[a])
-
-  {.pop.}
+  # A somewhat crude check to dermine if the image is a png. If so
+  # then we need to pre-multiply alpha as PNGs are not pre-multipled
+  # but Cairo requires it.
+  let (_, _, ext) = os.splitFile(path)
+  let premultiply = ext.toLower == ".png"
+  rgbaToArgb(img, width, height, channels, premultiply)
 
   result = Image(
     width: width, height: height,
@@ -179,6 +175,34 @@ proc loadImage*(path: string): Image =
     result.width.cint, result.height.cint,
     stride = result.width.cint * 4,
   )
+
+proc rgbaToArgb(img: var seq[byte], width, height, channels: int, premultiply: bool) =
+  {.push checks: off.}
+
+  for y in 0..<height:
+    for x in 0..<width:
+      let
+        r = channels * (x + y * width)
+        g = r + 1
+        b = g + 1
+        a = b + 1
+      if premultiply:
+        let
+          rr: uint32 = img[r]
+          gg: uint32 = img[g]
+          bb: uint32 = img[b]
+          aa: uint32 = img[a]
+        (img[r], img[g], img[b], img[a]) =
+          when cpuEndian == bigEndian:
+            (img[a], byte((rr * aa + 128) div 255), byte((gg * aa + 128) div 255), byte((bb * aa + 128) div 255))
+          else:
+            (byte((bb * aa + 128) div 255'u32), byte((gg * aa + 128) div 255), byte((rr * aa + 128) div 255), img[a])
+      else:
+        (img[r], img[g], img[b], img[a]) =
+          when cpuEndian == bigEndian: (img[a], img[r], img[g], img[b])
+          else: (img[b], img[g], img[r], img[a])
+
+  {.pop.}
 
 proc getCairo(image: Image): ptr Context =
   if image.cairo.isNil:
